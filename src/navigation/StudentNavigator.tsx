@@ -6,6 +6,7 @@ import ProfileScreen from '../screens/shared/ProfileScreen';
 import DocumentStatusScreen from '../screens/student/DocumentStatusScreen';
 import MyDocumentsScreen from '../screens/student/MyDocumentsScreen';
 import StudentHomeScreen from '../screens/student/StudentHomeScreen';
+import { stackScreenOptions, tabNavigatorOptions, tabScreenOptions } from './options';
 
 export type StudentTabParamList = {
   StudentHome: undefined;
@@ -24,29 +25,40 @@ const Stack = createNativeStackNavigator<StudentStackParamList>();
 
 function StudentTabs() {
   return (
-    <Tabs.Navigator>
+    <Tabs.Navigator screenOptions={tabNavigatorOptions}>
       <Tabs.Screen
         component={StudentHomeScreen}
         name="StudentHome"
-        options={{ title: 'Home' }}
+        options={{
+          title: 'Home',
+          ...tabScreenOptions('home-outline', 'home'),
+        }}
       />
       <Tabs.Screen
         component={MyDocumentsScreen}
         name="MyDocuments"
-        options={{ title: 'Documents' }}
+        options={{
+          title: 'Documents',
+          ...tabScreenOptions('folder-outline', 'folder'),
+        }}
       />
       <Tabs.Screen
         component={NotificationsScreen}
         name="Notifications"
+        options={tabScreenOptions('notifications-outline', 'notifications')}
       />
-      <Tabs.Screen component={ProfileScreen} name="Profile" />
+      <Tabs.Screen
+        component={ProfileScreen}
+        name="Profile"
+        options={tabScreenOptions('person-outline', 'person')}
+      />
     </Tabs.Navigator>
   );
 }
 
 export default function StudentNavigator() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={stackScreenOptions}>
       <Stack.Screen
         component={StudentTabs}
         name="StudentTabs"

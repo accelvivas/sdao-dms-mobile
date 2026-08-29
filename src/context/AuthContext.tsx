@@ -9,19 +9,24 @@ import {
 } from 'react';
 
 import {
-  clearSession,
-  getCurrentUser,
   login as loginRequest,
-  saveSession,
+  logout as logoutRequest,
+  restoreSession,
   verifyTwoFactor,
 } from '../services/authService';
-import type { LoginCredentials, TwoFactorPayload, User } from '../types/auth';
+import type {
+  LoginCredentials,
+  LoginNeedsTwoFactor,
+  LoginResult,
+  TwoFactorChallenge,
+  User,
+} from '../types/auth';
 
 type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
-  login: (credentials: LoginCredentials) => Promise<{ requiresTwoFactor: boolean }>;
-  confirmTwoFactor: (payload: TwoFactorPayload) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<LoginResult>;
+  confirmTwoFactor: (payload: TwoFactorChallenge) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -34,15 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    getCurrentUser()
+    restoreSession()
       .then((currentUser) => {
         if (isMounted) {
           setUser(currentUser);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setUser(null);
         }
       })
       .finally(() => {
@@ -58,21 +58,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     const result = await loginRequest(credentials);
+
     if (!result.requiresTwoFactor) {
-      await saveSession(result.session);
       setUser(result.user);
     }
-    return { requiresTwoFactor: result.requiresTwoFactor };
+
+    return result;
   }, []);
 
-  const confirmTwoFactor = useCallback(async (payload: TwoFactorPayload) => {
-    const result = await verifyTwoFactor(payload);
-    await saveSession(result.session);
-    setUser(result.user);
+  const confirmTwoFactor = useCallback(async (payload: TwoFactorChallenge) => {
+    const authenticatedUser = await verifyTwoFactor(payload);
+    setUser(authenticatedUser);
   }, []);
 
   const logout = useCallback(async () => {
-    await clearSession();
+    await logoutRequest();
     setUser(null);
   }, []);
 
@@ -90,4 +90,10 @@ export function useAuth(): AuthContextValue {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+export function isTwoFactorRequired(
+  result: LoginResult,
+): result is LoginNeedsTwoFactor {
+  return result.requiresTwoFactor;
 }

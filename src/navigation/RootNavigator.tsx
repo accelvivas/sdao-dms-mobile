@@ -1,34 +1,41 @@
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { colors } from '../constants/theme';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/auth/LoginScreen';
 import TwoFactorScreen from '../screens/auth/TwoFactorScreen';
+import { getAppRole } from '../types/auth';
 import ApproverNavigator from './ApproverNavigator';
+import { stackScreenOptions } from './options';
 import StudentNavigator from './StudentNavigator';
 
 export type AuthStackParamList = {
   Login: undefined;
-  TwoFactor: { email: string };
+  TwoFactor: { email: string; challengeToken: string };
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: colors.background,
+    primary: colors.primary,
+    card: colors.surface,
+    text: colors.text,
+    border: colors.border,
+  },
+};
+
 function AuthNavigator() {
   return (
-    <AuthStack.Navigator>
-      <AuthStack.Screen
-        component={LoginScreen}
-        name="Login"
-        options={{ title: 'Sign in' }}
-      />
-      <AuthStack.Screen
-        component={TwoFactorScreen}
-        name="TwoFactor"
-        options={{ title: 'Verify' }}
-      />
+    <AuthStack.Navigator screenOptions={{ ...stackScreenOptions, headerShown: false }}>
+      <AuthStack.Screen component={LoginScreen} name="Login" />
+      <AuthStack.Screen component={TwoFactorScreen} name="TwoFactor" />
     </AuthStack.Navigator>
   );
 }
@@ -38,8 +45,9 @@ function RootSwitch() {
 
   if (isLoading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator />
+      <View style={styles.splash}>
+        <Text style={styles.splashBrand}>SDAO DMS</Text>
+        <ActivityIndicator color={colors.accent} />
       </View>
     );
   }
@@ -48,7 +56,7 @@ function RootSwitch() {
     return <AuthNavigator />;
   }
 
-  if (user.role === 'approver') {
+  if (getAppRole(user) === 'approver') {
     return <ApproverNavigator />;
   }
 
@@ -59,7 +67,7 @@ export default function RootNavigator() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer>
+        <NavigationContainer theme={navigationTheme}>
           <RootSwitch />
         </NavigationContainer>
       </AuthProvider>
@@ -68,10 +76,17 @@ export default function RootNavigator() {
 }
 
 const styles = StyleSheet.create({
-  centered: {
+  splash: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.primaryDark,
+    gap: 16,
+  },
+  splashBrand: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });

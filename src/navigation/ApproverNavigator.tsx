@@ -6,6 +6,7 @@ import DocumentReviewScreen from '../screens/approver/DocumentReviewScreen';
 import ReviewQueueScreen from '../screens/approver/ReviewQueueScreen';
 import NotificationsScreen from '../screens/shared/NotificationsScreen';
 import ProfileScreen from '../screens/shared/ProfileScreen';
+import { stackScreenOptions, tabNavigatorOptions, tabScreenOptions } from './options';
 
 export type ApproverTabParamList = {
   ApproverHome: undefined;
@@ -24,29 +25,40 @@ const Stack = createNativeStackNavigator<ApproverStackParamList>();
 
 function ApproverTabs() {
   return (
-    <Tabs.Navigator>
+    <Tabs.Navigator screenOptions={tabNavigatorOptions}>
       <Tabs.Screen
         component={ApproverHomeScreen}
         name="ApproverHome"
-        options={{ title: 'Home' }}
+        options={{
+          title: 'Home',
+          ...tabScreenOptions('home-outline', 'home'),
+        }}
       />
       <Tabs.Screen
         component={ReviewQueueScreen}
         name="ReviewQueue"
-        options={{ title: 'Queue' }}
+        options={{
+          title: 'Queue',
+          ...tabScreenOptions('reader-outline', 'reader'),
+        }}
       />
       <Tabs.Screen
         component={NotificationsScreen}
         name="Notifications"
+        options={tabScreenOptions('notifications-outline', 'notifications')}
       />
-      <Tabs.Screen component={ProfileScreen} name="Profile" />
+      <Tabs.Screen
+        component={ProfileScreen}
+        name="Profile"
+        options={tabScreenOptions('person-outline', 'person')}
+      />
     </Tabs.Navigator>
   );
 }
 
 export default function ApproverNavigator() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={stackScreenOptions}>
       <Stack.Screen
         component={ApproverTabs}
         name="ApproverTabs"
