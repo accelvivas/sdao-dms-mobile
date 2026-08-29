@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   CompositeNavigationProp,
@@ -9,12 +10,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Card } from '../../components/Card';
 import { DocumentRow } from '../../components/DocumentRow';
 import { Screen } from '../../components/Screen';
-import { mockQueue } from '../../constants/mockData';
 import { colors } from '../../constants/theme';
 import type {
   ApproverStackParamList,
   ApproverTabParamList,
 } from '../../navigation/ApproverNavigator';
+import { getReviewQueue } from '../../services/documentService';
+import type { Document } from '../../types/document';
 
 export default function ReviewQueueScreen() {
   const navigation =
@@ -24,26 +26,57 @@ export default function ReviewQueueScreen() {
         NativeStackNavigationProp<ApproverStackParamList>
       >
     >();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getReviewQueue()
+      .then((items) => {
+        if (isMounted) {
+          setDocuments(items);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setDocuments([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <Screen scroll>
       <Text style={styles.title}>Review queue</Text>
-      <Text style={styles.subtitle}>
-        Sample queue layout. Approvals will connect to the API later.
-      </Text>
+      <Text style={styles.subtitle}>Approvals loaded from the connected API.</Text>
       <Card>
-        {mockQueue.map((document, index) => (
-          <View key={document.id}>
-            {index > 0 ? <View style={styles.divider} /> : null}
-            <DocumentRow
-              document={document}
-              onPress={() =>
-                navigation.navigate('DocumentReview', { documentId: document.id })
-              }
-              showSubmitter
-            />
-          </View>
-        ))}
+        {isLoading ? (
+          <Text style={styles.emptyText}>Loading queue...</Text>
+        ) : documents.length === 0 ? (
+          <Text style={styles.emptyText}>No queue items available.</Text>
+        ) : (
+          documents.map((document, index) => (
+            <View key={document.id}>
+              {index > 0 ? <View style={styles.divider} /> : null}
+              <DocumentRow
+                document={document}
+                onPress={() =>
+                  navigation.navigate('DocumentReview', { documentId: document.id })
+                }
+                showSubmitter
+              />
+            </View>
+          ))
+        )}
       </Card>
     </Screen>
   );
@@ -63,5 +96,9 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colors.border,
+  },
+  emptyText: {
+    color: colors.textMuted,
+    paddingVertical: 8,
   },
 });

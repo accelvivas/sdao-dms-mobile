@@ -1,30 +1,66 @@
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '../../components/Card';
 import { Screen } from '../../components/Screen';
-import { mockNotifications } from '../../constants/mockData';
 import { colors, radius } from '../../constants/theme';
+import { getNotifications } from '../../services/notificationService';
+import type { AppNotification } from '../../services/notificationService';
 import { formatDateTime } from '../../utils/date';
 
 export default function NotificationsScreen() {
+  const [items, setItems] = useState<AppNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getNotifications()
+      .then((notifications) => {
+        if (isMounted) {
+          setItems(notifications);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setItems([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <Screen scroll>
       <Text style={styles.title}>Notifications</Text>
-      <Text style={styles.subtitle}>Sample updates for document activity.</Text>
+      <Text style={styles.subtitle}>Updates for document activity.</Text>
 
       <View style={styles.list}>
-        {mockNotifications.map((item) => (
-          <Card key={item.id} style={styles.item}>
-            <View style={styles.row}>
-              {!item.read ? <View style={styles.dot} /> : <View style={styles.dotSpacer} />}
-              <View style={styles.copy}>
-                <Text style={styles.itemTitle}>{item.title}</Text>
-                <Text style={styles.body}>{item.body}</Text>
-                <Text style={styles.time}>{formatDateTime(item.createdAt)}</Text>
+        {isLoading ? (
+          <Text style={styles.emptyText}>Loading notifications...</Text>
+        ) : items.length === 0 ? (
+          <Text style={styles.emptyText}>No notifications yet.</Text>
+        ) : (
+          items.map((item) => (
+            <Card key={item.id} style={styles.item}>
+              <View style={styles.row}>
+                {!item.read ? <View style={styles.dot} /> : <View style={styles.dotSpacer} />}
+                <View style={styles.copy}>
+                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <Text style={styles.body}>{item.body}</Text>
+                  <Text style={styles.time}>{formatDateTime(item.createdAt)}</Text>
+                </View>
               </View>
-            </View>
-          </Card>
-        ))}
+            </Card>
+          ))
+        )}
       </View>
     </Screen>
   );
@@ -78,5 +114,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: colors.textMuted,
     fontSize: 12,
+  },
+  emptyText: {
+    color: colors.textMuted,
+    paddingVertical: 8,
   },
 });

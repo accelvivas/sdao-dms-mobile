@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -11,13 +12,14 @@ import { Card } from '../../components/Card';
 import { DocumentRow } from '../../components/DocumentRow';
 import { Screen } from '../../components/Screen';
 import { SectionHeader } from '../../components/SectionHeader';
-import { mockDocuments } from '../../constants/mockData';
 import { colors, radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import type {
   StudentStackParamList,
   StudentTabParamList,
 } from '../../navigation/StudentNavigator';
+import { getMyDocuments } from '../../services/documentService';
+import type { Document } from '../../types/document';
 
 const stats = [
   { label: 'Pending', value: '2', icon: 'time-outline' as const },
@@ -34,7 +36,34 @@ export default function StudentHomeScreen() {
         NativeStackNavigationProp<StudentStackParamList>
       >
     >();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const firstName = user?.name?.split(' ')[0] ?? 'there';
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getMyDocuments()
+      .then((items) => {
+        if (isMounted) {
+          setDocuments(items);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setDocuments([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <Screen scroll>
@@ -71,17 +100,23 @@ export default function StudentHomeScreen() {
         title="Recent documents"
       />
       <Card>
-        {mockDocuments.slice(0, 3).map((document, index) => (
-          <View key={document.id}>
-            {index > 0 ? <View style={styles.divider} /> : null}
-            <DocumentRow
-              document={document}
-              onPress={() =>
-                navigation.navigate('DocumentStatus', { documentId: document.id })
-              }
-            />
-          </View>
-        ))}
+        {isLoading ? (
+          <Text style={styles.emptyText}>Loading recent documents...</Text>
+        ) : documents.length === 0 ? (
+          <Text style={styles.emptyText}>No recent documents found.</Text>
+        ) : (
+          documents.slice(0, 3).map((document, index) => (
+            <View key={document.id}>
+              {index > 0 ? <View style={styles.divider} /> : null}
+              <DocumentRow
+                document={document}
+                onPress={() =>
+                  navigation.navigate('DocumentStatus', { documentId: document.id })
+                }
+              />
+            </View>
+          ))
+        )}
       </Card>
     </Screen>
   );
@@ -162,5 +197,9 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colors.border,
+  },
+  emptyText: {
+    color: colors.textMuted,
+    paddingVertical: 8,
   },
 });

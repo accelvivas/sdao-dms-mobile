@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -11,13 +12,14 @@ import { Card } from '../../components/Card';
 import { DocumentRow } from '../../components/DocumentRow';
 import { Screen } from '../../components/Screen';
 import { SectionHeader } from '../../components/SectionHeader';
-import { mockQueue } from '../../constants/mockData';
 import { colors, radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import type {
   ApproverStackParamList,
   ApproverTabParamList,
 } from '../../navigation/ApproverNavigator';
+import { getReviewQueue } from '../../services/documentService';
+import type { Document } from '../../types/document';
 
 export default function ApproverHomeScreen() {
   const { user } = useAuth();
@@ -28,7 +30,34 @@ export default function ApproverHomeScreen() {
         NativeStackNavigationProp<ApproverStackParamList>
       >
     >();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const firstName = user?.name?.split(' ')[0] ?? 'Officer';
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getReviewQueue()
+      .then((items) => {
+        if (isMounted) {
+          setDocuments(items);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setDocuments([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <Screen scroll>
@@ -38,7 +67,7 @@ export default function ApproverHomeScreen() {
 
       <View style={styles.stats}>
         <View style={[styles.stat, styles.statPrimary]}>
-          <Text style={styles.statNumber}>3</Text>
+          <Text style={styles.statNumber}>{documents.length}</Text>
           <Text style={styles.statLabelLight}>Waiting in queue</Text>
         </View>
         <View style={styles.stat}>
@@ -50,18 +79,24 @@ export default function ApproverHomeScreen() {
 
       <SectionHeader title="Needs attention" />
       <Card>
-        {mockQueue.map((document, index) => (
-          <View key={document.id}>
-            {index > 0 ? <View style={styles.divider} /> : null}
-            <DocumentRow
-              document={document}
-              onPress={() =>
-                navigation.navigate('DocumentReview', { documentId: document.id })
-              }
-              showSubmitter
-            />
-          </View>
-        ))}
+        {isLoading ? (
+          <Text style={styles.emptyText}>Loading queue...</Text>
+        ) : documents.length === 0 ? (
+          <Text style={styles.emptyText}>No document requests are waiting.</Text>
+        ) : (
+          documents.map((document, index) => (
+            <View key={document.id}>
+              {index > 0 ? <View style={styles.divider} /> : null}
+              <DocumentRow
+                document={document}
+                onPress={() =>
+                  navigation.navigate('DocumentReview', { documentId: document.id })
+                }
+                showSubmitter
+              />
+            </View>
+          ))
+        )}
       </Card>
     </Screen>
   );
@@ -126,5 +161,9 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colors.border,
+  },
+  emptyText: {
+    color: colors.textMuted,
+    paddingVertical: 8,
   },
 });

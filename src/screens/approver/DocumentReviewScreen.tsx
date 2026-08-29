@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -5,16 +6,58 @@ import { AppButton } from '../../components/AppButton';
 import { Card } from '../../components/Card';
 import { Screen } from '../../components/Screen';
 import { StatusBadge } from '../../components/StatusBadge';
-import { mockQueue } from '../../constants/mockData';
 import { colors } from '../../constants/theme';
 import type { ApproverStackParamList } from '../../navigation/ApproverNavigator';
+import { getDocumentById } from '../../services/documentService';
+import type { Document } from '../../types/document';
 import { formatDateTime } from '../../utils/date';
 
 type Props = NativeStackScreenProps<ApproverStackParamList, 'DocumentReview'>;
 
 export default function DocumentReviewScreen({ route }: Props) {
-  const document =
-    mockQueue.find((item) => item.id === route.params.documentId) ?? mockQueue[0];
+  const [document, setDocument] = useState<Document | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getDocumentById(route.params.documentId)
+      .then((item) => {
+        if (isMounted) {
+          setDocument(item);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setDocument(null);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [route.params.documentId]);
+
+  if (isLoading) {
+    return (
+      <Screen scroll>
+        <Text style={styles.emptyText}>Loading request...</Text>
+      </Screen>
+    );
+  }
+
+  if (!document) {
+    return (
+      <Screen scroll>
+        <Text style={styles.emptyText}>Request not found.</Text>
+      </Screen>
+    );
+  }
 
   return (
     <Screen scroll>
@@ -90,5 +133,9 @@ const styles = StyleSheet.create({
   },
   returnButton: {
     marginTop: 10,
+  },
+  emptyText: {
+    color: colors.textMuted,
+    fontSize: 15,
   },
 });

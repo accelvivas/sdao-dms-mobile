@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -49,101 +49,144 @@ export default function LoginScreen({ navigation }: Props) {
   }
 
   return (
-    <Screen padded={false} scroll backgroundColor={colors.primaryDark}>
-      <StatusBar style="light" />
-      <View style={styles.hero}>
-        <View style={styles.logoMark}>
-          <Ionicons color={colors.accent} name="folder-open" size={32} />
+    <ImageBackground
+      source={require('../../../assets/images/nu-lipa-campus.jpg')}
+      resizeMode="cover"
+      style={styles.background}
+    >
+      <View style={styles.darkOverlay} />
+      <Screen padded={false} scroll backgroundColor="transparent">
+        <StatusBar style="light" />
+
+        {/* Hero */}
+        <View style={styles.hero}>
+          <Image
+            source={require('../../../assets/images/nulogo3.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.brand}>SDAO DMS</Text>
+          <View style={styles.brandDivider} />
+          <Text style={styles.heroCopy}>Student Development and Activities Office</Text>
         </View>
-        <Text style={styles.brand}>SDAO DMS</Text>
-        <Text style={styles.heroCopy}>Student Development and Activities Office</Text>
-      </View>
 
-      <View style={styles.sheet}>
-        <Card>
-          <Text style={styles.title}>Sign in</Text>
-          <Text style={styles.subtitle}>
-            Use the same account created on the SDAO DMS web system.
-          </Text>
+        {/* Sheet */}
+        <View style={styles.sheet}>
+          <Card style={styles.card}>
+            <Text style={styles.title}>Sign in</Text>
+            <Text style={styles.subtitle}>
+              Use the same account created on the SDAO DMS web system.
+            </Text>
 
-          <AppTextField
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            label="Email"
-            onChangeText={setEmail}
-            placeholder="name@school.edu"
-            textContentType="username"
-            value={email}
-          />
-          <AppTextField
-            label="Password"
-            onChangeText={setPassword}
-            placeholder="Enter your password"
-            secureTextEntry
-            textContentType="password"
-            value={password}
-          />
+            <View style={styles.fieldGroup}>
+              <AppTextField
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                label="Email"
+                onChangeText={setEmail}
+                placeholder="email@example.com"
+                textContentType="username"
+                value={email}
+              />
+              <AppTextField
+                label="Password"
+                onChangeText={setPassword}
+                placeholder="Enter your password"
+                secureTextEntry
+                textContentType="password"
+                value={password}
+              />
+            </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? (
+              <View style={styles.errorBox}>
+                <Ionicons color={colors.danger} name="alert-circle" size={16} />
+                <Text style={styles.error}>{error}</Text>
+              </View>
+            ) : null}
 
-          <AppButton
-            label="Sign in"
-            loading={isSubmitting}
-            onPress={handleLogin}
-          />
-        </Card>
+            <AppButton
+              label="Sign in"
+              loading={isSubmitting}
+              onPress={handleLogin}
+              style={styles.signInButton}
+            />
+          </Card>
 
-        <View style={styles.note}>
-          <Ionicons color={colors.textMuted} name="information-circle-outline" size={18} />
-          <Text style={styles.noteText}>
-            No mobile registration. New accounts, password resets, and role
-            assignment are handled on the web system.
-          </Text>
+          <View style={styles.note}>
+            <Ionicons color={colors.textMuted} name="information-circle-outline" size={18} />
+            <Text style={styles.noteText}>
+              No mobile registration. New accounts, password resets, and role
+              assignment are handled on the web system.
+            </Text>
+          </View>
         </View>
-      </View>
-    </Screen>
+      </Screen>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  darkOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(12, 22, 42, 0.45)',
+  },
   hero: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: 'transparent',
     paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 48,
+    paddingTop: 40,
+    paddingBottom: 56,
     alignItems: 'center',
   },
-  logoMark: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.lg,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(201,162,39,0.45)',
+  logoImage: {
+    width: 96,
+    height: 96,
+    marginBottom: 18,
   },
   brand: {
-    color: '#fff',
-    fontSize: 28,
+    color: '#FFFFFF',
+    fontSize: 30,
     fontWeight: '800',
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
+  },
+  brandDivider: {
+    width: 36,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    borderRadius: 1,
+    marginTop: 10,
+    marginBottom: 10,
   },
   heroCopy: {
-    marginTop: 6,
     color: 'rgba(255,255,255,0.72)',
     textAlign: 'center',
+    fontSize: 14,
+    letterSpacing: 0.2,
   },
   sheet: {
-    marginTop: -28,
+    marginTop: -32,
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: 32,
     backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    minHeight: 420,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    minHeight: 440,
+  },
+  card: {
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(10,29,59,0.10)',
+    shadowColor: colors.primaryDark,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   title: {
     fontSize: 22,
@@ -153,18 +196,35 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: colors.textMuted,
-    marginBottom: 20,
+    marginBottom: 22,
     lineHeight: 20,
+    fontSize: 14,
+  },
+  fieldGroup: {
+    gap: 14,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#FCEEED',
+    borderRadius: 8,
   },
   error: {
     color: colors.danger,
-    marginBottom: 12,
     fontSize: 13,
+    flexShrink: 1,
+  },
+  signInButton: {
+    marginTop: 22,
   },
   note: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 18,
+    marginTop: 20,
     paddingHorizontal: 8,
   },
   noteText: {
