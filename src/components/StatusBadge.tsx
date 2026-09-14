@@ -7,6 +7,11 @@ const STATUS_COPY: Record<DocumentStatus, { label: string; bg: string; fg: strin
   pending: { label: 'Pending', bg: colors.warningSoft, fg: colors.warning },
   in_review: { label: 'In review', bg: colors.infoSoft, fg: colors.info },
   approved: { label: 'Approved', bg: colors.successSoft, fg: colors.success },
+  revision_requested: {
+    label: 'Request revision',
+    bg: colors.warningSoft,
+    fg: colors.warning,
+  },
   rejected: { label: 'Returned', bg: colors.dangerSoft, fg: colors.danger },
 };
 

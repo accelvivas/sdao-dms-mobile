@@ -6,15 +6,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors } from '../constants/theme';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/auth/LoginScreen';
-import TwoFactorScreen from '../screens/auth/TwoFactorScreen';
-import { getAppRole } from '../types/auth';
+import { canAccessMobileReview } from '../types/auth';
 import ApproverNavigator from './ApproverNavigator';
 import { stackScreenOptions } from './options';
-import StudentNavigator from './StudentNavigator';
 
 export type AuthStackParamList = {
   Login: undefined;
-  TwoFactor: { email: string; challengeToken: string };
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -35,7 +32,6 @@ function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ ...stackScreenOptions, headerShown: false }}>
       <AuthStack.Screen component={LoginScreen} name="Login" />
-      <AuthStack.Screen component={TwoFactorScreen} name="TwoFactor" />
     </AuthStack.Navigator>
   );
 }
@@ -56,11 +52,11 @@ function RootSwitch() {
     return <AuthNavigator />;
   }
 
-  if (getAppRole(user) === 'approver') {
+  if (canAccessMobileReview(user)) {
     return <ApproverNavigator />;
   }
 
-  return <StudentNavigator />;
+  return <AuthNavigator />;
 }
 
 export default function RootNavigator() {

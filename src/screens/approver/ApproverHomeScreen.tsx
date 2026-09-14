@@ -63,12 +63,12 @@ export default function ApproverHomeScreen() {
     <Screen scroll>
       <Text style={styles.kicker}>Approver portal</Text>
       <Text style={styles.hello}>Welcome, {firstName}</Text>
-      <Text style={styles.subtitle}>Review queued student document requests.</Text>
+      <Text style={styles.subtitle}>Review Activity Proposals from your phone.</Text>
 
       <View style={styles.stats}>
         <View style={[styles.stat, styles.statPrimary]}>
           <Text style={styles.statNumber}>{documents.length}</Text>
-          <Text style={styles.statLabelLight}>Waiting in queue</Text>
+          <Text style={styles.statLabelLight}>Proposals awaiting review</Text>
         </View>
         <View style={styles.stat}>
           <Ionicons color={colors.primary} name="checkmark-done-outline" size={20} />
@@ -77,12 +77,12 @@ export default function ApproverHomeScreen() {
         </View>
       </View>
 
-      <SectionHeader title="Needs attention" />
+      <SectionHeader title="Activity Proposals needing attention" />
       <Card>
         {isLoading ? (
           <Text style={styles.emptyText}>Loading queue...</Text>
         ) : documents.length === 0 ? (
-          <Text style={styles.emptyText}>No document requests are waiting.</Text>
+          <Text style={styles.emptyText}>No Activity Proposals are waiting.</Text>
         ) : (
           documents.map((document, index) => (
             <View key={document.id}>

@@ -28,41 +28,45 @@ export default function ReviewQueueScreen() {
     >();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState('');
+
+  async function loadQueue(refresh = false) {
+    if (refresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+
+    try {
+      setError('');
+      const items = await getReviewQueue();
+      setDocuments(items);
+    } catch {
+      setError('Unable to load Activity Proposals. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }
 
   useEffect(() => {
-    let isMounted = true;
-
-    getReviewQueue()
-      .then((items) => {
-        if (isMounted) {
-          setDocuments(items);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setDocuments([]);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    loadQueue().catch(() => undefined);
   }, []);
 
   return (
-    <Screen scroll>
+    <Screen onRefresh={() => loadQueue(true)} refreshing={isRefreshing} scroll>
       <Text style={styles.title}>Review queue</Text>
-      <Text style={styles.subtitle}>Approvals loaded from the connected API.</Text>
+      <Text style={styles.subtitle}>Activity Proposals awaiting your review.</Text>
       <Card>
         {isLoading ? (
           <Text style={styles.emptyText}>Loading queue...</Text>
+        ) : error ? (
+          <Text style={styles.errorText}>{error}</Text>
         ) : documents.length === 0 ? (
-          <Text style={styles.emptyText}>No queue items available.</Text>
+          <Text style={styles.emptyText}>
+            No Activity Proposals are currently awaiting your review.
+          </Text>
         ) : (
           documents.map((document, index) => (
             <View key={document.id}>
@@ -99,6 +103,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.textMuted,
+    paddingVertical: 8,
+  },
+  errorText: {
+    color: colors.danger,
     paddingVertical: 8,
   },
 });

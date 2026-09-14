@@ -4,14 +4,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ApproverHomeScreen from '../screens/approver/ApproverHomeScreen';
 import DocumentReviewScreen from '../screens/approver/DocumentReviewScreen';
 import ReviewQueueScreen from '../screens/approver/ReviewQueueScreen';
-import NotificationsScreen from '../screens/shared/NotificationsScreen';
 import ProfileScreen from '../screens/shared/ProfileScreen';
 import { stackScreenOptions, tabNavigatorOptions, tabScreenOptions } from './options';
 
 export type ApproverTabParamList = {
   ApproverHome: undefined;
   ReviewQueue: undefined;
-  Notifications: undefined;
   Profile: undefined;
 };
 
@@ -43,11 +41,6 @@ function ApproverTabs() {
         }}
       />
       <Tabs.Screen
-        component={NotificationsScreen}
-        name="Notifications"
-        options={tabScreenOptions('notifications-outline', 'notifications')}
-      />
-      <Tabs.Screen
         component={ProfileScreen}
         name="Profile"
         options={tabScreenOptions('person-outline', 'person')}
@@ -67,7 +60,7 @@ export default function ApproverNavigator() {
       <Stack.Screen
         component={DocumentReviewScreen}
         name="DocumentReview"
-        options={{ title: 'Review document' }}
+        options={{ title: 'Review Activity Proposal' }}
       />
     </Stack.Navigator>
   );

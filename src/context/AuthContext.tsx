@@ -12,21 +12,13 @@ import {
   login as loginRequest,
   logout as logoutRequest,
   restoreSession,
-  verifyTwoFactor,
 } from '../services/authService';
-import type {
-  LoginCredentials,
-  LoginNeedsTwoFactor,
-  LoginResult,
-  TwoFactorChallenge,
-  User,
-} from '../types/auth';
+import type { LoginCredentials, LoginResult, User } from '../types/auth';
 
 type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<LoginResult>;
-  confirmTwoFactor: (payload: TwoFactorChallenge) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -59,16 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (credentials: LoginCredentials) => {
     const result = await loginRequest(credentials);
 
-    if (!result.requiresTwoFactor) {
-      setUser(result.user);
-    }
-
+    setUser(result.user);
     return result;
-  }, []);
-
-  const confirmTwoFactor = useCallback(async (payload: TwoFactorChallenge) => {
-    const authenticatedUser = await verifyTwoFactor(payload);
-    setUser(authenticatedUser);
   }, []);
 
   const logout = useCallback(async () => {
@@ -77,8 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, isLoading, login, confirmTwoFactor, logout }),
-    [user, isLoading, login, confirmTwoFactor, logout],
+    () => ({ user, isLoading, login, logout }),
+    [user, isLoading, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -90,10 +74,4 @@ export function useAuth(): AuthContextValue {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
-
-export function isTwoFactorRequired(
-  result: LoginResult,
-): result is LoginNeedsTwoFactor {
-  return result.requiresTwoFactor;
 }

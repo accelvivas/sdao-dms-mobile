@@ -3,10 +3,17 @@ import * as SecureStore from 'expo-secure-store';
 import axios from 'axios';
 
 import { apiClient, setMobileToken } from '../api/client';
+import { config } from '../constants/config';
+import {
+  getMockAccount,
+  getMockToken,
+  getMockUser,
+  getMockUserByToken,
+} from '../mocks/mockAuth';
+import { throwMockNetworkError, waitForMockResponse } from '../mocks/mockUtils';
 import type {
   LoginCredentials,
   LoginResult,
-  TwoFactorChallenge,
   User,
 } from '../types/auth';
 
@@ -22,16 +29,13 @@ type LaravelUserPayload = {
   email: string;
   name: string;
   roles?: RolePayload[];
+  mobile_access?: boolean;
+  capabilities?: {
+    can_access_mobile_review?: boolean;
+  };
 };
 
 type LoginResponse = {
-  token?: string;
-  two_factor?: boolean;
-  two_factor_challenge_token?: string;
-  user?: LaravelUserPayload;
-};
-
-type TwoFactorResponse = {
   token: string;
 };
 
@@ -48,7 +52,29 @@ function normalizeUser(payload: LaravelUserPayload): User {
     email: payload.email,
     name: payload.name,
     roles,
+    roleAssignments: roles.map((role) => ({
+      role: role as User['roleAssignments'][number]['role'],
+      label: role,
+    })),
+    mobileAccess:
+      payload.mobile_access ?? payload.capabilities?.can_access_mobile_review ?? false,
   };
+}
+
+export class MobileAccessDeniedError extends Error {
+  constructor() {
+    super(
+      'This mobile application is available only to authorized Activity Proposal approvers.',
+    );
+    this.name = 'MobileAccessDeniedError';
+  }
+}
+
+function assertMobileAccess(user: User): User {
+  if (!user.mobileAccess) {
+    throw new MobileAccessDeniedError();
+  }
+  return user;
 }
 
 export function getAuthErrorMessage(error: unknown): string {
@@ -78,6 +104,10 @@ export function getAuthErrorMessage(error: unknown): string {
     }
   }
 
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
   return 'Unable to sign in. Please try again.';
 }
 
@@ -102,54 +132,60 @@ export async function restoreMobileToken(): Promise<string | null> {
 
 async function completeAuthenticatedSession(token: string): Promise<User> {
   await persistMobileToken(token);
-  return fetchAuthenticatedUser();
+  try {
+    return await fetchAuthenticatedUser();
+  } catch (error) {
+    await clearMobileToken();
+    throw error;
+  }
 }
 
 export async function fetchAuthenticatedUser(): Promise<User> {
+  if (config.useMockData) {
+    const token = await SecureStore.getItemAsync(
+      MOBILE_TOKEN_KEY,
+      SECURE_STORE_OPTIONS,
+    );
+    const user = token ? getMockUserByToken(token) : null;
+    if (!user) {
+      throw new Error('The mock session is no longer available.');
+    }
+    return assertMobileAccess(user);
+  }
+
   const { data } = await apiClient.get<LaravelUserPayload>('/mobile/user');
-  return normalizeUser(data);
+  return assertMobileAccess(normalizeUser(data));
 }
 
 export async function login(credentials: LoginCredentials): Promise<LoginResult> {
+  if (config.useMockData) {
+    await waitForMockResponse();
+    throwMockNetworkError();
+    const account = getMockAccount(credentials);
+    const user = assertMobileAccess(getMockUser(account));
+
+    await persistMobileToken(getMockToken(user));
+    return { user };
+  }
+
   const { data } = await apiClient.post<LoginResponse>('/mobile/login', {
     email: credentials.email,
     password: credentials.password,
     device_name: Device.deviceName ?? 'SDAO DMS Mobile',
   });
 
-  if (data.two_factor) {
-    if (!data.two_factor_challenge_token) {
-      throw new Error('Two-factor challenge is missing.');
-    }
-
-    return {
-      requiresTwoFactor: true,
-      challengeToken: data.two_factor_challenge_token,
-    };
-  }
-
-  if (!data.token) {
-    throw new Error('Mobile API token was not issued.');
-  }
-
   const user = await completeAuthenticatedSession(data.token);
-  return { requiresTwoFactor: false, user };
-}
-
-export async function verifyTwoFactor(
-  payload: TwoFactorChallenge,
-): Promise<User> {
-  const { data } = await apiClient.post<TwoFactorResponse>('/mobile/two-factor', {
-    email: payload.email,
-    code: payload.code,
-    two_factor_challenge_token: payload.challengeToken,
-    device_name: Device.deviceName ?? 'SDAO DMS Mobile',
-  });
-
-  return completeAuthenticatedSession(data.token);
+  assertMobileAccess(user);
+  return { user };
 }
 
 export async function logout(): Promise<void> {
+  if (config.useMockData) {
+    await waitForMockResponse();
+    await clearMobileToken();
+    return;
+  }
+
   try {
     await apiClient.post('/mobile/logout');
   } catch {
@@ -171,4 +207,8 @@ export async function restoreSession(): Promise<User | null> {
     await clearMobileToken();
     return null;
   }
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  return restoreSession();
 }

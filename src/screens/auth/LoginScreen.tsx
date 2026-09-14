@@ -2,20 +2,16 @@ import { useState } from 'react';
 import { Alert, Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AppButton } from '../../components/AppButton';
 import { AppTextField } from '../../components/AppTextField';
 import { Card } from '../../components/Card';
 import { Screen } from '../../components/Screen';
 import { colors, radius } from '../../constants/theme';
-import { isTwoFactorRequired, useAuth } from '../../context/AuthContext';
-import type { AuthStackParamList } from '../../navigation/RootNavigator';
+import { useAuth } from '../../context/AuthContext';
 import { getAuthErrorMessage } from '../../services/authService';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
-
-export default function LoginScreen({ navigation }: Props) {
+export default function LoginScreen() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,14 +27,7 @@ export default function LoginScreen({ navigation }: Props) {
     try {
       setError('');
       setIsSubmitting(true);
-      const result = await login({ email: email.trim(), password });
-
-      if (isTwoFactorRequired(result)) {
-        navigation.navigate('TwoFactor', {
-          email: email.trim(),
-          challengeToken: result.challengeToken,
-        });
-      }
+      await login({ email: email.trim(), password });
     } catch (caught) {
       const message = getAuthErrorMessage(caught);
       setError(message);
@@ -75,7 +64,7 @@ export default function LoginScreen({ navigation }: Props) {
           <Card style={styles.card}>
             <Text style={styles.title}>Sign in</Text>
             <Text style={styles.subtitle}>
-              Use the same account created on the SDAO DMS web system.
+              Sign in with an authorized Activity Proposal approver account.
             </Text>
 
             <View style={styles.fieldGroup}>
