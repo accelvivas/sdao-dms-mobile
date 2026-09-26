@@ -38,6 +38,48 @@ export type DocumentAttachment = {
   fileName: string;
   fileType: string;
   sizeLabel: string;
+  description?: string;
+};
+
+export type ActivityExpense = {
+  material: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+};
+
+export type ProgramFlowItem = {
+  activity: string;
+  duration?: string;
+};
+
+export type ResponsiblePerson = {
+  name: string;
+  role: string;
+};
+
+export type ActivityProposalDetails = {
+  venue?: string;
+  startsAt?: string;
+  endsAt?: string;
+  natureOfActivity?: string;
+  typeOfActivity?: string;
+  partnerOrganizations?: string[];
+  targetSdgs?: string[];
+  proposedBudget?: number;
+  budgetSource?: string;
+  objectives?: string[];
+  activityDescription?: string;
+  criteriaMechanics?: string;
+  programFlow?: ProgramFlowItem[];
+  expenses?: ActivityExpense[];
+  responsiblePersons?: ResponsiblePerson[];
+  revisionSections?: string[];
+  approval?: {
+    stageLabel: string;
+    approvedCount: number;
+    totalCount: number;
+  };
 };
 
 export type Document = {
@@ -56,4 +98,5 @@ export type Document = {
   permissions: DocumentPermissions;
   attachments: DocumentAttachment[];
   description: string;
+  activityProposal?: ActivityProposalDetails;
 };

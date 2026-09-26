@@ -1,0 +1,319 @@
+SDAO DMS MOBILE API CONTRACT
+============================
+
+Purpose
+-------
+API contract required by the SDAO DMS React Native / Expo mobile app.
+The mobile app is approver-only and reviews Activity Proposals.
+
+BASE URL
+--------
+Configure the mobile app with:
+
+https://your-domain.com/api
+
+All authenticated requests require:
+
+Authorization: Bearer {token}
+Accept: application/json
+Content-Type: application/json
+
+
+1. AUTHENTICATION
+-----------------
+
+POST /mobile/login
+
+Request:
+{
+  "email": "demo.adviser@nu-lipa.edu.ph",
+  "password": "Password123!",
+  "device_name": "SDAO DMS Mobile"
+}
+
+Response:
+{
+  "token": "sanctum-token-here"
+}
+
+GET /mobile/user
+
+Response:
+{
+  "id": 1,
+  "email": "demo.adviser@nu-lipa.edu.ph",
+  "name": "Demo Adviser",
+  "roles": ["approver", "adviser"],
+  "mobile_access": true,
+  "capabilities": {
+    "can_access_mobile_review": true
+  }
+}
+
+Accounts without mobile access should receive HTTP 403.
+
+POST /mobile/logout
+
+Expected response:
+204 No Content
+
+
+2. REVIEW QUEUE
+---------------
+
+GET /documents/queue
+
+Return Activity Proposals visible to the authenticated approver.
+
+Response:
+[
+  {
+    "id": "PROP-2026-001",
+    "title": "IT Week 2026",
+    "type": "activity_proposal",
+    "status": "in_review",
+    "submitted_by": "Demo Student Organization",
+    "submitted_at": "2026-08-18T08:30:00.000Z",
+    "updated_at": "2026-09-12T09:00:00.000Z",
+    "current_stage": "adviser_review",
+    "current_step": 2,
+    "total_steps": 8,
+    "organization_name": "NU Lipa Demo Student Organization",
+    "permissions": {
+      "can_view": true,
+      "can_act": true,
+      "can_review": true,
+      "can_approve": true,
+      "can_request_revision": true,
+      "can_reject": true
+    }
+  }
+]
+
+
+3. ACTIVITY PROPOSAL DETAILS
+----------------------------
+
+GET /documents/{documentId}
+
+Response:
+{
+  "id": "PROP-2026-001",
+  "title": "IT Week 2026",
+  "type": "activity_proposal",
+  "status": "in_review",
+  "submitted_by": "Demo Student Organization",
+  "submitted_at": "2026-08-18T08:30:00.000Z",
+  "updated_at": "2026-09-12T09:00:00.000Z",
+  "current_stage": "adviser_review",
+  "current_step": 2,
+  "total_steps": 8,
+  "organization_name": "NU Lipa Demo Student Organization",
+  "description": "A week-long technology and innovation program for NU Lipa students.",
+  "permissions": {
+    "can_view": true,
+    "can_act": true,
+    "can_review": true,
+    "can_approve": true,
+    "can_request_revision": true,
+    "can_reject": true
+  },
+  "attachments": [
+    {
+      "id": "attachment-001",
+      "file_name": "it-week-2026-proposal.pdf",
+      "file_type": "PDF",
+      "size_label": "2.4 MB",
+      "description": "Activity Proposal request letter"
+    }
+  ],
+  "activity_proposal": {
+    "venue": "University Activity Room",
+    "starts_at": "2026-10-10T09:00:00.000Z",
+    "ends_at": "2026-10-10T11:30:00.000Z",
+    "nature_of_activity": "Non-curricular",
+    "type_of_activity": "Seminar/Workshop",
+    "partner_organizations": [
+      "School of Computing and Information Technologies"
+    ],
+    "target_sdgs": [
+      "Quality Education",
+      "Industry, Innovation and Infrastructure"
+    ],
+    "proposed_budget": 3500,
+    "budget_source": "Organization Fund",
+    "objectives": [
+      "Introduce students to practical technology and innovation concepts.",
+      "Encourage collaborative problem solving."
+    ],
+    "activity_description": "A week-long technology and innovation program for NU Lipa students.",
+    "criteria_mechanics": "Participants will join facilitated sessions and submit a collaborative output.",
+    "program_flow": [
+      {
+        "activity": "Opening remarks and orientation",
+        "duration": "15 mins"
+      },
+      {
+        "activity": "Technology and innovation sessions",
+        "duration": "60 mins"
+      }
+    ],
+    "expenses": [
+      {
+        "material": "Printed workshop materials",
+        "quantity": 100,
+        "unit_price": 10,
+        "total": 1000
+      }
+    ],
+    "responsible_persons": [
+      {
+        "name": "Demo Adviser",
+        "role": "Faculty Adviser"
+      }
+    ],
+    "revision_sections": [
+      "RSO Info",
+      "Activity Details",
+      "Partner Orgs & SDG",
+      "Budget",
+      "Schedule & Venue",
+      "Objectives",
+      "Activity Description",
+      "Responsible Persons",
+      "General"
+    ],
+    "approval": {
+      "stage_label": "Adviser Approval",
+      "approved_count": 0,
+      "total_count": 1
+    }
+  },
+  "history": [
+    {
+      "id": "transition-001",
+      "action": "Submitted",
+      "stage": "submitted",
+      "actor_name": "Demo Student Organization",
+      "actor_role": "Organization Officer",
+      "timestamp": "2026-08-18T08:30:00.000Z",
+      "remarks": null
+    }
+  ]
+}
+
+The mobile app expects the API fields above in snake_case JSON.
+
+
+4. APPROVE
+----------
+
+POST /documents/{documentId}/approve
+
+Request body:
+{}
+
+Return the updated full Activity Proposal document.
+
+
+5. REQUEST REVISION
+-------------------
+
+POST /documents/{documentId}/request-revision
+
+Request:
+{
+  "remarks": "Please update the activity schedule and budget details.\n\nSections needing revision: Budget, Schedule & Venue"
+}
+
+Return the updated full Activity Proposal document.
+
+
+6. REJECT
+---------
+
+POST /documents/{documentId}/reject
+
+Request:
+{
+  "remarks": "The proposal does not meet the current requirements."
+}
+
+Return the updated full Activity Proposal document.
+
+
+7. ENUM VALUES
+--------------
+
+Status values:
+pending
+in_review
+approved
+revision_requested
+rejected
+
+Workflow stage values:
+submitted
+adviser_review
+program_chair_review
+principal_review
+completed
+rejected
+
+Conditional SHS Principal workflow:
+
+The SHS Principal approval stage must be included only when the submitting RSO
+President belongs to Senior High School (SHS).
+
+If the RSO President is an SHS student:
+
+submitted -> adviser_review -> program_chair_review -> principal_review -> completed
+
+If the RSO President is not an SHS student:
+
+submitted -> adviser_review -> program_chair_review -> completed
+
+Laravel must determine this condition from the submitting president's actual
+academic level or student classification. The mobile app must rely on the API's
+current_stage, total_steps, permissions, and history values and must not infer
+the workflow from role names.
+
+
+8. ERROR RESPONSES
+------------------
+
+Validation error: HTTP 422
+{
+  "message": "The given data was invalid.",
+  "errors": {
+    "remarks": ["The remarks field is required."]
+  }
+}
+
+Unauthenticated: HTTP 401
+{
+  "message": "Unauthenticated."
+}
+
+Forbidden: HTTP 403
+{
+  "message": "You are not allowed to perform this action."
+}
+
+Not found: HTTP 404
+{
+  "message": "Activity Proposal not found."
+}
+
+
+9. ATTACHMENTS
+--------------
+
+The current mobile app displays attachment metadata only.
+It does not currently call an attachment download or viewing endpoint.
+
+A future endpoint could be:
+
+GET /documents/{documentId}/attachments/{attachmentId}/download
+
+This endpoint is not currently required by the mobile app.
