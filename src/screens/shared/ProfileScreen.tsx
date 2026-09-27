@@ -1,26 +1,69 @@
 import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../../components/AppButton';
 import { Card } from '../../components/Card';
 import { Screen } from '../../components/Screen';
-import { colors, radius } from '../../constants/theme';
+import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+
+const ROLE_LABELS: Record<string, string> = {
+  approver: 'Approver',
+  adviser: 'Adviser',
+  program_chair: 'Program Chair',
+  dean: 'Dean',
+  principal: 'Principal',
+  sdao_member: 'SDAO Member',
+  assistant_director_academic_services: 'Assistant Director for Academic Services',
+  academic_director: 'Academic Director',
+  executive_director: 'Executive Director',
+};
+
+function formatRoleLabel(role: string): string {
+  return ROLE_LABELS[role.toLowerCase()]
+    ?? role
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const initials = (user?.name ?? 'SDAO User')
     .split(' ')
+    .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0])
     .join('')
     .toUpperCase();
 
-  async function handleLogout() {
+  const assignmentLabels = user?.roleAssignments
+    .filter((assignment) => assignment.role !== 'approver')
+    .map((assignment) => assignment.label || formatRoleLabel(assignment.role))
+    ?? [];
+  const roleLabels = user?.roles
+    .filter((role) => role.toLowerCase() !== 'approver')
+    .map(formatRoleLabel)
+    ?? [];
+  const positions = Array.from(new Set([...assignmentLabels, ...roleLabels]));
+  const isApprover = user?.roles.some((role) => role.toLowerCase() === 'approver') ?? false;
+
+  async function performLogout() {
     try {
       await logout();
     } catch {
-      Alert.alert('Sign out', 'Signed out on this device.');
+      Alert.alert('Unable to sign out', 'Please check your connection and try again.');
     }
+  }
+
+  function confirmLogout() {
+    Alert.alert(
+      'Sign out?',
+      'You will need to enter your account credentials again to review proposals.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign out', style: 'destructive', onPress: () => void performLogout() },
+      ],
+    );
   }
 
   return (
@@ -34,96 +77,128 @@ export default function ProfileScreen() {
         </View>
         <Text style={styles.name}>{user?.name ?? 'Existing SDAO user'}</Text>
         <Text style={styles.email}>{user?.email ?? 'Not signed in'}</Text>
-        <View style={styles.roles}>
-          {(user?.roles.length ? user.roles : ['No roles loaded']).map((role) => (
-            <View key={role} style={styles.roleChip}>
-              <Text style={styles.roleText}>{role}</Text>
-            </View>
-          ))}
-        </View>
+        {isApprover ? (
+          <View style={styles.approverChip}>
+            <Text style={styles.approverText}>Approver</Text>
+          </View>
+        ) : null}
+        {positions.length ? (
+          <View style={styles.positions}>
+            {positions.map((position) => (
+              <Text key={position} style={styles.position}>{position}</Text>
+            ))}
+          </View>
+        ) : null}
       </Card>
 
-      <Card style={styles.note}>
-        <Text style={styles.noteTitle}>Managed on the web</Text>
-        <Text style={styles.noteText}>
-          Password changes, email verification, and role assignment stay in the
+      <Card style={styles.accountCard}>
+        <View style={styles.accountHeader}>
+          <View style={styles.accountIcon}>
+            <Ionicons color={colors.primary} name="desktop-outline" size={20} />
+          </View>
+          <Text style={styles.accountTitle}>Account Management</Text>
+        </View>
+        <Text style={styles.accountText}>
+          Password changes, email verification, and role assignments are managed through the
           SDAO DMS web system.
         </Text>
       </Card>
 
-      <AppButton label="Sign out" onPress={handleLogout} variant="danger" />
+      <AppButton label="Sign out" onPress={confirmLogout} variant="danger" />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: 28,
-    fontWeight: '800',
     color: colors.text,
+    ...typography.pageTitle,
   },
   subtitle: {
-    marginTop: 4,
-    marginBottom: 16,
+    marginTop: spacing.xxs,
+    marginBottom: spacing.lg,
     color: colors.textMuted,
+    ...typography.supporting,
   },
   hero: {
     alignItems: 'center',
-    marginBottom: 12,
-    paddingVertical: 24,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.xl,
   },
   avatar: {
-    width: 76,
-    height: 76,
+    width: 68,
+    height: 68,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   initials: {
-    color: '#fff',
-    fontSize: 24,
+    color: colors.white,
+    fontSize: 22,
     fontWeight: '800',
   },
   name: {
-    fontSize: 20,
-    fontWeight: '800',
     color: colors.text,
+    ...typography.sectionTitle,
+    textAlign: 'center',
   },
   email: {
-    marginTop: 4,
+    marginTop: spacing.xxs,
     color: colors.textMuted,
+    ...typography.supporting,
+    textAlign: 'center',
   },
-  roles: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 14,
-  },
-  roleChip: {
-    backgroundColor: colors.primarySoft,
+  approverChip: {
+    marginTop: spacing.sm,
     borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
   },
-  roleText: {
+  approverText: {
     color: colors.primary,
-    fontWeight: '700',
     fontSize: 12,
-    textTransform: 'capitalize',
-  },
-  note: {
-    marginBottom: 20,
-  },
-  noteTitle: {
     fontWeight: '700',
-    color: colors.text,
   },
-  noteText: {
-    marginTop: 6,
-    color: colors.textMuted,
+  positions: {
+    alignItems: 'center',
+    gap: spacing.xxs,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  position: {
+    color: colors.text,
+    fontSize: 14,
     lineHeight: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  accountCard: {
+    marginBottom: spacing.lg,
+  },
+  accountHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  accountIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountTitle: {
+    flex: 1,
+    color: colors.text,
+    ...typography.cardTitle,
+  },
+  accountText: {
+    marginTop: spacing.sm,
+    color: colors.textMuted,
+    ...typography.supporting,
   },
 });

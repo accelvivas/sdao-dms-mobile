@@ -51,5 +51,16 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
   }
 
   const message = payload?.message;
-  return typeof message === 'string' && message.trim().length > 0 ? message : fallback;
+  if (typeof message !== 'string' || message.trim().length === 0) {
+    return fallback;
+  }
+
+  const normalizedMessage = message.trim().toLowerCase();
+  const genericServerMessages = new Set([
+    'server error',
+    'internal server error',
+    'something went wrong',
+  ]);
+
+  return genericServerMessages.has(normalizedMessage) ? fallback : message.trim();
 }

@@ -3,10 +3,11 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius } from '../constants/theme';
+import { colors, layout, radius, typography } from '../constants/theme';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -16,7 +17,7 @@ type Props = {
   disabled?: boolean;
   loading?: boolean;
   variant?: Variant;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function AppButton({
@@ -28,9 +29,16 @@ export function AppButton({
   style,
 }: Props) {
   const isDisabled = disabled || loading;
+  const indicatorColor = variant === 'primary'
+    ? colors.white
+    : variant === 'danger'
+      ? colors.danger
+      : colors.primary;
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       disabled={isDisabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -42,7 +50,7 @@ export function AppButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#fff' : colors.primary} />
+        <ActivityIndicator color={indicatorColor} />
       ) : (
         <Text style={[styles.label, styles[`${variant}Label`]]}>{label}</Text>
       )}
@@ -52,8 +60,10 @@ export function AppButton({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
+    minHeight: layout.controlHeight,
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
@@ -62,10 +72,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   secondary: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surface,
+    borderColor: colors.primary,
   },
   danger: {
     backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   ghost: {
     backgroundColor: 'transparent',
@@ -77,11 +89,10 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.button,
   },
   primaryLabel: {
-    color: '#fff',
+    color: colors.white,
   },
   secondaryLabel: {
     color: colors.primary,

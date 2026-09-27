@@ -1,22 +1,45 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, radius } from '../constants/theme';
+import { colors, radius, spacing, typography } from '../constants/theme';
+import { AppButton } from './AppButton';
 
 type Props = {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   message: string;
+  actionLabel?: string;
+  loading?: boolean;
+  onAction?: () => void;
 };
 
-export function EmptyState({ icon, title, message }: Props) {
+export function EmptyState({
+  icon,
+  title,
+  message,
+  actionLabel,
+  loading = false,
+  onAction,
+}: Props) {
   return (
     <View style={styles.wrap}>
       <View style={styles.iconWrap}>
-        <Ionicons color={colors.primary} name={icon} size={28} />
+        {loading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <Ionicons color={colors.primary} name={icon} size={26} />
+        )}
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
+      {actionLabel && onAction ? (
+        <AppButton
+          label={actionLabel}
+          onPress={onAction}
+          style={styles.action}
+          variant="secondary"
+        />
+      ) : null}
     </View>
   );
 }
@@ -24,27 +47,30 @@ export function EmptyState({ icon, title, message }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
-    paddingVertical: 36,
-    paddingHorizontal: 24,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
   iconWrap: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: radius.full,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.cardTitle,
     color: colors.text,
   },
   message: {
-    marginTop: 6,
+    marginTop: spacing.xs,
     textAlign: 'center',
     color: colors.textMuted,
-    lineHeight: 20,
+    ...typography.supporting,
+  },
+  action: {
+    alignSelf: 'stretch',
+    marginTop: spacing.md,
   },
 });

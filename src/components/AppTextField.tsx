@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, radius } from '../constants/theme';
+import { colors, layout, radius, spacing, typography } from '../constants/theme';
 
 type Props = TextInputProps & {
   label: string;
@@ -22,23 +22,40 @@ export function AppTextField({
   error,
   rightSlot,
   secureTextEntry,
+  onBlur,
+  onFocus,
   ...inputProps
 }: Props) {
   const [hidden, setHidden] = useState(Boolean(secureTextEntry));
+  const [focused, setFocused] = useState(false);
   const isPassword = Boolean(secureTextEntry);
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
-      <View style={[styles.field, error ? styles.fieldError : null]}>
+      <View style={[styles.field, focused && styles.fieldFocused, error && styles.fieldError]}>
         <TextInput
+          onBlur={(event) => {
+            setFocused(false);
+            onBlur?.(event);
+          }}
+          onFocus={(event) => {
+            setFocused(true);
+            onFocus?.(event);
+          }}
           placeholderTextColor={colors.textMuted}
           secureTextEntry={isPassword ? hidden : false}
           style={styles.input}
           {...inputProps}
         />
         {isPassword ? (
-          <Pressable hitSlop={8} onPress={() => setHidden((value) => !value)}>
+          <Pressable
+            accessibilityLabel={hidden ? 'Show password' : 'Hide password'}
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => setHidden((value) => !value)}
+            style={styles.rightButton}
+          >
             <Ionicons
               color={colors.textMuted}
               name={hidden ? 'eye-off-outline' : 'eye-outline'}
@@ -56,35 +73,44 @@ export function AppTextField({
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: 14,
+    gap: spacing.xs,
   },
   label: {
-    fontSize: 13,
+    ...typography.supporting,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 6,
   },
   field: {
-    minHeight: 52,
+    minHeight: layout.controlHeight,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  fieldFocused: {
+    borderColor: colors.primary,
+    borderWidth: 1.5,
   },
   fieldError: {
     borderColor: colors.danger,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.text,
-    paddingVertical: 12,
+    paddingVertical: spacing.sm,
+  },
+  rightButton: {
+    width: 40,
+    height: 40,
+    marginRight: -8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   error: {
-    marginTop: 6,
     color: colors.danger,
     fontSize: 13,
   },

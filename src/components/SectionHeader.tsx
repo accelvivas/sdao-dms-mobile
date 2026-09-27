@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../constants/theme';
+import { colors, spacing, typography } from '../constants/theme';
 
 type Props = {
   title: string;
@@ -26,15 +26,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 17,
-    fontWeight: '700',
+    ...typography.sectionTitle,
     color: colors.text,
   },
   action: {
     color: colors.primary,
     fontWeight: '600',
+    fontSize: 14,
   },
 });

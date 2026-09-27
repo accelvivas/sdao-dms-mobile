@@ -6,18 +6,19 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing } from '../constants/theme';
+import { colors, layout, spacing } from '../constants/theme';
 
 type Props = {
   children: ReactNode;
   scroll?: boolean;
   padded?: boolean;
   backgroundColor?: string;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   refreshing?: boolean;
   onRefresh?: () => void;
 };
@@ -44,6 +45,7 @@ export function Screen({
         {scroll ? (
           <ScrollView
             contentContainerStyle={styles.scroll}
+            contentInsetAdjustmentBehavior="automatic"
             keyboardShouldPersistTaps="handled"
             refreshControl={
               onRefresh ? (
@@ -73,9 +75,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   padded: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingHorizontal: layout.screenPadding,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
   scroll: {
     flexGrow: 1,

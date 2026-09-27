@@ -7,7 +7,7 @@ import { AppButton } from '../../components/AppButton';
 import { AppTextField } from '../../components/AppTextField';
 import { Card } from '../../components/Card';
 import { Screen } from '../../components/Screen';
-import { colors, radius } from '../../constants/theme';
+import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { getAuthErrorMessage } from '../../services/authService';
 
@@ -63,9 +63,7 @@ export default function LoginScreen() {
         <View style={styles.sheet}>
           <Card style={styles.card}>
             <Text style={styles.title}>Sign in</Text>
-            <Text style={styles.subtitle}>
-              Sign in with an authorized Activity Proposal approver account.
-            </Text>
+            <Text style={styles.subtitle}>Use your authorized approver account.</Text>
 
             <View style={styles.fieldGroup}>
               <AppTextField
@@ -85,6 +83,7 @@ export default function LoginScreen() {
                 secureTextEntry
                 textContentType="password"
                 value={password}
+                onSubmitEditing={() => void handleLogin()}
               />
             </View>
 
@@ -106,8 +105,7 @@ export default function LoginScreen() {
           <View style={styles.note}>
             <Ionicons color={colors.textMuted} name="information-circle-outline" size={18} />
             <Text style={styles.noteText}>
-              No mobile registration. New accounts, password resets, and role
-              assignment are handled on the web system.
+              Accounts and account settings are managed through the SDAO DMS web system.
             </Text>
           </View>
         </View>
@@ -124,83 +122,75 @@ const styles = StyleSheet.create({
   },
   darkOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(12, 22, 42, 0.45)',
+    backgroundColor: colors.overlay,
   },
   hero: {
     backgroundColor: 'transparent',
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 56,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl,
+    paddingBottom: 48,
     alignItems: 'center',
   },
   logoImage: {
-    width: 96,
-    height: 96,
-    marginBottom: 18,
+    width: 84,
+    height: 84,
+    marginBottom: spacing.md,
   },
   brand: {
-    color: '#FFFFFF',
-    fontSize: 30,
+    color: colors.white,
+    fontSize: 28,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
   },
   brandDivider: {
     width: 36,
     height: 2,
     backgroundColor: 'rgba(255,255,255,0.35)',
     borderRadius: 1,
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
   },
   heroCopy: {
     color: 'rgba(255,255,255,0.72)',
     textAlign: 'center',
-    fontSize: 14,
+    ...typography.supporting,
     letterSpacing: 0.2,
   },
   sheet: {
-    marginTop: -32,
-    paddingHorizontal: 20,
-    paddingBottom: 32,
+    flexGrow: 1,
+    marginTop: -24,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxl,
     backgroundColor: colors.background,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    minHeight: 440,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   card: {
-    marginTop: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(10,29,59,0.10)',
-    shadowColor: colors.primaryDark,
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
+    marginTop: spacing.lg,
   },
   title: {
+    ...typography.sectionTitle,
     fontSize: 22,
-    fontWeight: '800',
     color: colors.text,
-    marginBottom: 6,
   },
   subtitle: {
     color: colors.textMuted,
-    marginBottom: 22,
-    lineHeight: 20,
-    fontSize: 14,
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
+    ...typography.supporting,
   },
   fieldGroup: {
-    gap: 14,
+    gap: spacing.md,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#FCEEED',
-    borderRadius: 8,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.dangerSoft,
+    borderRadius: radius.sm,
   },
   error: {
     color: colors.danger,
@@ -208,13 +198,14 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   signInButton: {
-    marginTop: 22,
+    marginTop: spacing.lg,
   },
   note: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 20,
-    paddingHorizontal: 8,
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.xs,
   },
   noteText: {
     flex: 1,

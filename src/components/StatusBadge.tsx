@@ -5,14 +5,14 @@ import type { DocumentStatus } from '../types/document';
 
 const STATUS_COPY: Record<DocumentStatus, { label: string; bg: string; fg: string }> = {
   pending: { label: 'Pending', bg: colors.warningSoft, fg: colors.warning },
-  in_review: { label: 'In review', bg: colors.infoSoft, fg: colors.info },
+  in_review: { label: 'In Review', bg: colors.infoSoft, fg: colors.info },
   approved: { label: 'Approved', bg: colors.successSoft, fg: colors.success },
   revision_requested: {
-    label: 'Request revision',
+    label: 'Revision Requested',
     bg: colors.warningSoft,
     fg: colors.warning,
   },
-  rejected: { label: 'Returned', bg: colors.dangerSoft, fg: colors.danger },
+  rejected: { label: 'Rejected', bg: colors.dangerSoft, fg: colors.danger },
 };
 
 export function StatusBadge({ status }: { status: DocumentStatus }) {
@@ -27,6 +27,7 @@ export function StatusBadge({ status }: { status: DocumentStatus }) {
 
 const styles = StyleSheet.create({
   badge: {
+    alignSelf: 'flex-start',
     borderRadius: radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,

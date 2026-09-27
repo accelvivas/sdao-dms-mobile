@@ -11,10 +11,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Card } from '../../components/Card';
 import { DocumentRow } from '../../components/DocumentRow';
+import { EmptyState } from '../../components/EmptyState';
 import { Screen } from '../../components/Screen';
 import { SectionHeader } from '../../components/SectionHeader';
 import { config } from '../../constants/config';
-import { colors, radius } from '../../constants/theme';
+import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import type {
   ApproverStackParamList,
@@ -24,7 +25,7 @@ import { getReviewQueue } from '../../services/documentService';
 import { getUnreadReviewNotificationCount } from '../../services/notificationService';
 import { addNotificationReceivedListener } from '../../services/pushNotificationService';
 import type { Document } from '../../types/document';
-import { getApiErrorStatus } from '../../utils/apiError';
+import { getApiErrorMessage, getApiErrorStatus } from '../../utils/apiError';
 
 export default function ApproverHomeScreen() {
   const { user, logout } = useAuth();
@@ -38,6 +39,8 @@ export default function ApproverHomeScreen() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [notificationCount, setNotificationCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState('');
   const firstName = user?.name?.split(' ')[0] ?? 'Officer';
 
   const refreshNotificationCount = useCallback(async () => {
@@ -48,10 +51,36 @@ export default function ApproverHomeScreen() {
 
     try {
       setNotificationCount(await getUnreadReviewNotificationCount());
-    } catch (error: unknown) {
-      if (getApiErrorStatus(error) === 401) {
+    } catch (caught: unknown) {
+      if (getApiErrorStatus(caught) === 401) {
         void logout();
       }
+    }
+  }, [logout]);
+
+  const loadQueue = useCallback(async (refresh = false) => {
+    if (refresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+
+    try {
+      setError('');
+      const items = await getReviewQueue();
+      setDocuments(items.filter((document) => document.permissions.can_act));
+    } catch (caught: unknown) {
+      if (getApiErrorStatus(caught) === 401) {
+        await logout();
+        return;
+      }
+      setError(getApiErrorMessage(
+        caught,
+        'Unable to load Activity Proposals. Please try again.',
+      ));
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [logout]);
 
@@ -64,50 +93,18 @@ export default function ApproverHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      let isFocused = true;
-      setIsLoading(true);
-
-      getReviewQueue()
-        .then((items) => {
-          if (isFocused) {
-            setDocuments(items.filter((document) => document.permissions.can_act));
-          }
-        })
-        .catch((error: unknown) => {
-          if (!isFocused) return;
-          if (getApiErrorStatus(error) === 401) {
-            void logout();
-            return;
-          }
-          setDocuments([]);
-        })
-        .finally(() => {
-          if (isFocused) {
-            setIsLoading(false);
-          }
-        });
-
-      if (config.notificationsEnabled) {
-        getUnreadReviewNotificationCount()
-          .then((count) => {
-            if (isFocused) setNotificationCount(count);
-          })
-          .catch((error: unknown) => {
-            if (!isFocused) return;
-            if (getApiErrorStatus(error) === 401) {
-              void logout();
-            }
-          });
-      }
-
-      return () => {
-        isFocused = false;
-      };
-    }, [logout]),
+      void loadQueue();
+      void refreshNotificationCount();
+    }, [loadQueue, refreshNotificationCount]),
   );
 
+  function refreshHome() {
+    void loadQueue(true);
+    void refreshNotificationCount();
+  }
+
   return (
-    <Screen scroll>
+    <Screen onRefresh={refreshHome} refreshing={isRefreshing} scroll>
       <View style={styles.headingRow}>
         <View style={styles.headingCopy}>
           <Text style={styles.kicker}>Approver portal</Text>
@@ -118,12 +115,14 @@ export default function ApproverHomeScreen() {
             accessibilityLabel={`Review notifications${notificationCount ? `, ${notificationCount} available` : ''}`}
             accessibilityRole="button"
             onPress={() => navigation.navigate('ReviewNotifications')}
-            style={styles.notificationButton}
+            style={({ pressed }) => [styles.notificationButton, pressed && styles.pressed]}
           >
-            <Ionicons color={colors.primary} name="notifications-outline" size={23} />
+            <Ionicons color={colors.primary} name="notifications-outline" size={22} />
             {notificationCount > 0 ? (
               <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
+                <Text style={styles.notificationBadgeText}>
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </Text>
               </View>
             ) : null}
           </Pressable>
@@ -131,34 +130,57 @@ export default function ApproverHomeScreen() {
       </View>
       <Text style={styles.subtitle}>Review Activity Proposals from your phone.</Text>
 
-      <View style={styles.stats}>
-        <View style={[styles.stat, styles.statPrimary]}>
-          <Text style={styles.statNumber}>{documents.length}</Text>
-          <Text style={styles.statLabelLight}>Proposals awaiting review</Text>
+      <Card style={styles.reviewSummary}>
+        <View>
+          <Text style={styles.summaryLabel}>Awaiting Review</Text>
+          <Text style={styles.summaryDescription}>Activity Proposals</Text>
         </View>
-      </View>
+        <Text style={styles.summaryValue}>{isLoading ? '—' : documents.length}</Text>
+      </Card>
 
-      <SectionHeader title="Activity Proposals needing attention" />
-      <Card>
-        {isLoading ? (
-          <Text style={styles.emptyText}>Loading queue...</Text>
-        ) : documents.length === 0 ? (
-          <Text style={styles.emptyText}>No Activity Proposals are waiting.</Text>
-        ) : (
-          documents.map((document, index) => (
+      <SectionHeader title="Pending Your Review" />
+
+      {isLoading ? (
+        <Card>
+          <EmptyState
+            icon="hourglass-outline"
+            loading
+            message="Fetching proposals assigned to you."
+            title="Loading proposals"
+          />
+        </Card>
+      ) : error ? (
+        <Card>
+          <EmptyState
+            actionLabel="Try Again"
+            icon="alert-circle-outline"
+            message={error}
+            onAction={() => void loadQueue()}
+            title="Unable to load proposals"
+          />
+        </Card>
+      ) : documents.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon="checkmark-circle-outline"
+            message="No Activity Proposals are waiting for your review."
+            title="You're all caught up"
+          />
+        </Card>
+      ) : (
+        <Card>
+          {documents.map((document, index) => (
             <View key={document.id}>
               {index > 0 ? <View style={styles.divider} /> : null}
               <DocumentRow
                 document={document}
-                onPress={() =>
-                  navigation.navigate('DocumentReview', { documentId: document.id })
-                }
+                onPress={() => navigation.navigate('DocumentReview', { documentId: document.id })}
                 showSubmitter
               />
             </View>
-          ))
-        )}
-      </Card>
+          ))}
+        </Card>
+      )}
     </Screen>
   );
 }
@@ -175,13 +197,16 @@ const styles = StyleSheet.create({
   notificationButton: {
     width: 44,
     height: 44,
-    marginLeft: 12,
+    marginLeft: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.72,
   },
   notificationBadge: {
     position: 'absolute',
@@ -196,60 +221,55 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   notificationBadgeText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 10,
     fontWeight: '800',
   },
   kicker: {
     color: colors.accent,
-    fontWeight: '700',
-    letterSpacing: 0.6,
+    ...typography.label,
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
-    fontSize: 12,
   },
   hello: {
-    marginTop: 4,
-    fontSize: 28,
-    fontWeight: '800',
+    marginTop: spacing.xxs,
     color: colors.text,
+    ...typography.pageTitle,
   },
   subtitle: {
-    marginTop: 4,
-    marginBottom: 20,
+    marginTop: spacing.xxs,
+    marginBottom: spacing.lg,
     color: colors.textMuted,
+    ...typography.supporting,
   },
-  stats: {
+  reviewSummary: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 24,
-  },
-  stat: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statPrimary: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xl,
+    paddingVertical: spacing.md,
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#fff',
+  summaryLabel: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '700',
   },
-  statLabelLight: {
-    marginTop: 6,
-    color: 'rgba(255,255,255,0.8)',
+  summaryDescription: {
+    marginTop: spacing.xxs,
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 13,
+  },
+  summaryValue: {
+    marginLeft: spacing.md,
+    color: colors.white,
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: '800',
   },
   divider: {
     height: 1,
     backgroundColor: colors.border,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    paddingVertical: 8,
   },
 });

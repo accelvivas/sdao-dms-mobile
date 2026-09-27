@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../constants/theme';
-import { formatDate } from '../utils/date';
+import { colors, spacing, typography } from '../constants/theme';
 import type { Document } from '../types/document';
+import { formatDate } from '../utils/date';
 import { StatusBadge } from './StatusBadge';
 
 type Props = {
@@ -14,17 +14,21 @@ type Props = {
 
 export function DocumentRow({ document, onPress, showSubmitter = false }: Props) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <View style={styles.copy}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
+      <View style={styles.topRow}>
         <Text style={styles.id}>{document.id}</Text>
-        <Text style={styles.title}>{document.title}</Text>
-        <Text style={styles.meta}>
+        <StatusBadge status={document.status} />
+      </View>
+      <Text style={styles.title}>{document.title}</Text>
+      <View style={styles.bottomRow}>
+        <Text numberOfLines={2} style={styles.meta}>
           {showSubmitter ? `${document.submittedBy} · ` : ''}
           {formatDate(document.updatedAt)}
         </Text>
-      </View>
-      <View style={styles.aside}>
-        <StatusBadge status={document.status} />
         <Ionicons color={colors.textMuted} name="chevron-forward" size={18} />
       </View>
     </Pressable>
@@ -33,35 +37,41 @@ export function DocumentRow({ document, onPress, showSubmitter = false }: Props)
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   pressed: {
-    opacity: 0.7,
+    opacity: 0.72,
   },
-  copy: {
-    flex: 1,
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   id: {
+    flex: 1,
     color: colors.textMuted,
     fontSize: 12,
     fontWeight: '600',
-    marginBottom: 2,
   },
   title: {
+    marginTop: spacing.xs,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: '700',
   },
-  meta: {
-    marginTop: 4,
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-  aside: {
+  bottomRow: {
+    flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 8,
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  meta: {
+    flex: 1,
+    color: colors.textMuted,
+    ...typography.supporting,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

@@ -6,8 +6,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { AppButton } from '../../components/AppButton';
 import { Card } from '../../components/Card';
+import { EmptyState } from '../../components/EmptyState';
 import { Screen } from '../../components/Screen';
-import { colors, spacing } from '../../constants/theme';
+import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import type { ApproverStackParamList } from '../../navigation/ApproverNavigator';
 import {
@@ -113,7 +114,12 @@ export default function ReviewNotificationsScreen() {
   }
 
   return (
-    <Screen scroll>
+    <Screen
+      onRefresh={() => void loadNotifications()}
+      refreshing={isLoading && notifications.length > 0}
+      scroll
+    >
+      <Text style={styles.kicker}>APPROVAL WORKSPACE</Text>
       <View style={styles.headingRow}>
         <View style={styles.headingCopy}>
           <Text style={styles.title}>Review Notifications</Text>
@@ -135,19 +141,41 @@ export default function ReviewNotificationsScreen() {
         ) : null}
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
       {isLoading ? (
-        <Card><Text style={styles.emptyText}>Loading notifications...</Text></Card>
+        <Card>
+          <EmptyState
+            icon="notifications-outline"
+            loading
+            message="Fetching your latest proposal notifications."
+            title="Loading notifications"
+          />
+        </Card>
+      ) : error && notifications.length === 0 ? (
+        <Card>
+          <EmptyState
+            actionLabel="Try again"
+            icon="cloud-offline-outline"
+            message={error}
+            onAction={() => void loadNotifications()}
+            title="Notifications unavailable"
+          />
+        </Card>
       ) : notifications.length === 0 ? (
         <Card>
-          <View style={styles.emptyState}>
-            <Ionicons color={colors.textMuted} name="notifications-off-outline" size={28} />
-            <Text style={styles.emptyText}>No review notifications are currently available.</Text>
-          </View>
+          <EmptyState
+            icon="notifications-off-outline"
+            message="New proposal assignments and workflow updates will appear here."
+            title="You're all caught up"
+          />
         </Card>
       ) : (
         <>
+          {error ? (
+            <View style={styles.errorBanner}>
+              <Ionicons color={colors.danger} name="alert-circle-outline" size={18} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
           {notifications.map((notification) => (
             <Pressable
               accessibilityRole="button"
@@ -155,22 +183,34 @@ export default function ReviewNotificationsScreen() {
               onPress={() => openNotification(notification)}
             >
               <Card
-                style={notification.readAt
-                  ? styles.notificationCard
-                  : { ...styles.notificationCard, ...styles.unreadNotificationCard }}
+                style={[
+                  styles.notificationCard,
+                  !notification.readAt && styles.unreadNotificationCard,
+                ]}
               >
                 <View style={styles.notificationHeader}>
-                  {!notification.readAt ? <View style={styles.unreadDot} /> : null}
-                  <Text style={styles.notificationTitle}>{notification.title}</Text>
+                  <View style={styles.notificationIcon}>
+                    <Ionicons
+                      color={colors.primary}
+                      name={!notification.readAt ? 'document-text' : 'document-text-outline'}
+                      size={19}
+                    />
+                  </View>
+                  <View style={styles.notificationCopy}>
+                    <View style={styles.titleRow}>
+                      <Text style={styles.notificationTitle}>{notification.title}</Text>
+                      {!notification.readAt ? <View style={styles.unreadDot} /> : null}
+                    </View>
+                    <Text style={styles.timestamp}>{formatDateTime(new Date(notification.createdAt))}</Text>
+                  </View>
                   {notification.proposalReference ? (
-                    <Ionicons color={colors.primary} name="chevron-forward" size={18} />
+                    <Ionicons color={colors.textMuted} name="chevron-forward" size={18} />
                   ) : null}
                 </View>
                 {notification.body ? <Text style={styles.body}>{notification.body}</Text> : null}
                 {!notification.proposalReference ? (
                   <Text style={styles.unavailableText}>Proposal link unavailable for this older notification.</Text>
                 ) : null}
-                <Text style={styles.timestamp}>{formatDateTime(new Date(notification.createdAt))}</Text>
               </Card>
             </Pressable>
           ))}
@@ -190,6 +230,12 @@ export default function ReviewNotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
+  kicker: {
+    ...typography.label,
+    color: colors.primary,
+    letterSpacing: 0.8,
+    marginBottom: spacing.xs,
+  },
   headingRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -201,13 +247,13 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 22,
-    fontWeight: '800',
+    ...typography.pageTitle,
   },
   subtitle: {
-    marginTop: 4,
-    marginBottom: spacing.md,
+    marginTop: spacing.xxs,
+    marginBottom: spacing.lg,
     color: colors.textMuted,
+    ...typography.supporting,
   },
   markAllButton: {
     minHeight: 44,
@@ -224,11 +270,28 @@ const styles = StyleSheet.create({
   },
   unreadNotificationCard: {
     borderColor: colors.primary,
+    backgroundColor: '#FAFCFE',
   },
   notificationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  notificationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+  },
+  notificationCopy: {
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   unreadDot: {
     width: 8,
@@ -239,14 +302,12 @@ const styles = StyleSheet.create({
   notificationTitle: {
     flex: 1,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: '700',
+    ...typography.cardTitle,
   },
   body: {
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
+    ...typography.supporting,
   },
   unavailableText: {
     marginTop: spacing.xs,
@@ -255,23 +316,23 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   timestamp: {
-    marginTop: spacing.sm,
+    marginTop: spacing.xxs,
     color: colors.textMuted,
     fontSize: 12,
   },
-  emptyState: {
+  errorBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    textAlign: 'center',
+    gap: spacing.xs,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSoft,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
   },
   errorText: {
-    marginBottom: spacing.sm,
+    flex: 1,
     color: colors.danger,
-    fontSize: 13,
+    ...typography.supporting,
   },
   loadMoreButton: {
     marginTop: spacing.xs,
