@@ -1,0 +1,18 @@
+{
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "NOTIFICATIONS_ENABLED": "false"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "env": {
+        "NOTIFICATIONS_ENABLED": "true"
+      }
+    }
+  }
+}

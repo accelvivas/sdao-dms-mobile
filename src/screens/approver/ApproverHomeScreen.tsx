@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
   CompositeNavigationProp,
+  useFocusEffect,
   useNavigation,
 } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -11,6 +13,7 @@ import { Card } from '../../components/Card';
 import { DocumentRow } from '../../components/DocumentRow';
 import { Screen } from '../../components/Screen';
 import { SectionHeader } from '../../components/SectionHeader';
+import { config } from '../../constants/config';
 import { colors, radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import type {
@@ -18,10 +21,13 @@ import type {
   ApproverTabParamList,
 } from '../../navigation/ApproverNavigator';
 import { getReviewQueue } from '../../services/documentService';
+import { getUnreadReviewNotificationCount } from '../../services/notificationService';
+import { addNotificationReceivedListener } from '../../services/pushNotificationService';
 import type { Document } from '../../types/document';
+import { getApiErrorStatus } from '../../utils/apiError';
 
 export default function ApproverHomeScreen() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigation =
     useNavigation<
       CompositeNavigationProp<
@@ -30,38 +36,99 @@ export default function ApproverHomeScreen() {
       >
     >();
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [notificationCount, setNotificationCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const firstName = user?.name?.split(' ')[0] ?? 'Officer';
 
+  const refreshNotificationCount = useCallback(async () => {
+    if (!config.notificationsEnabled) {
+      setNotificationCount(0);
+      return;
+    }
+
+    try {
+      setNotificationCount(await getUnreadReviewNotificationCount());
+    } catch (error: unknown) {
+      if (getApiErrorStatus(error) === 401) {
+        void logout();
+      }
+    }
+  }, [logout]);
+
   useEffect(() => {
-    let isMounted = true;
+    const subscription = addNotificationReceivedListener(() => {
+      void refreshNotificationCount();
+    });
+    return () => subscription?.remove();
+  }, [refreshNotificationCount]);
 
-    getReviewQueue()
-      .then((items) => {
-        if (isMounted) {
-          setDocuments(items);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
+  useFocusEffect(
+    useCallback(() => {
+      let isFocused = true;
+      setIsLoading(true);
+
+      getReviewQueue()
+        .then((items) => {
+          if (isFocused) {
+            setDocuments(items.filter((document) => document.permissions.can_act));
+          }
+        })
+        .catch((error: unknown) => {
+          if (!isFocused) return;
+          if (getApiErrorStatus(error) === 401) {
+            void logout();
+            return;
+          }
           setDocuments([]);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      });
+        })
+        .finally(() => {
+          if (isFocused) {
+            setIsLoading(false);
+          }
+        });
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      if (config.notificationsEnabled) {
+        getUnreadReviewNotificationCount()
+          .then((count) => {
+            if (isFocused) setNotificationCount(count);
+          })
+          .catch((error: unknown) => {
+            if (!isFocused) return;
+            if (getApiErrorStatus(error) === 401) {
+              void logout();
+            }
+          });
+      }
+
+      return () => {
+        isFocused = false;
+      };
+    }, [logout]),
+  );
 
   return (
     <Screen scroll>
-      <Text style={styles.kicker}>Approver portal</Text>
-      <Text style={styles.hello}>Welcome, {firstName}</Text>
+      <View style={styles.headingRow}>
+        <View style={styles.headingCopy}>
+          <Text style={styles.kicker}>Approver portal</Text>
+          <Text style={styles.hello}>Welcome, {firstName}</Text>
+        </View>
+        {config.notificationsEnabled ? (
+          <Pressable
+            accessibilityLabel={`Review notifications${notificationCount ? `, ${notificationCount} available` : ''}`}
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('ReviewNotifications')}
+            style={styles.notificationButton}
+          >
+            <Ionicons color={colors.primary} name="notifications-outline" size={23} />
+            {notificationCount > 0 ? (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        ) : null}
+      </View>
       <Text style={styles.subtitle}>Review Activity Proposals from your phone.</Text>
 
       <View style={styles.stats}>
@@ -97,6 +164,42 @@ export default function ApproverHomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headingCopy: {
+    flex: 1,
+  },
+  notificationButton: {
+    width: 44,
+    height: 44,
+    marginLeft: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
   kicker: {
     color: colors.accent,
     fontWeight: '700',

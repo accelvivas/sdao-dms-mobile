@@ -30,7 +30,7 @@ export type DocumentPermissions = {
 };
 
 export type DocumentAttachment = {
-  id: string;
+  id: string | number;
   fileName: string;
   fileType: string;
   sizeLabel: string;

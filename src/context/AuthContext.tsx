@@ -13,6 +13,11 @@ import {
   logout as logoutRequest,
   restoreSession,
 } from '../services/authService';
+import {
+  addPushTokenRefreshListener,
+  registerPushToken,
+  unregisterPushToken,
+} from '../services/pushNotificationService';
 import type { LoginCredentials, LoginResult, User } from '../types/auth';
 
 type AuthContextValue = {
@@ -48,6 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    void registerPushToken();
+    const tokenSubscription = addPushTokenRefreshListener();
+    return () => tokenSubscription?.remove();
+  }, [user?.id]);
+
   const login = useCallback(async (credentials: LoginCredentials) => {
     const result = await loginRequest(credentials);
 
@@ -56,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    await unregisterPushToken();
     await logoutRequest();
     setUser(null);
   }, []);

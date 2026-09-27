@@ -1,11 +1,21 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import type { NotificationResponse } from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '../constants/theme';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/auth/LoginScreen';
+import { markLatestNotificationForProposalRead } from '../services/notificationService';
+import {
+  addNotificationResponseListener,
+  clearLastNotificationResponse,
+  getLastNotificationResponse,
+} from '../services/pushNotificationService';
+import type { ApproverStackParamList } from './ApproverNavigator';
 import { canAccessMobileReview } from '../types/auth';
 import ApproverNavigator from './ApproverNavigator';
 import { stackScreenOptions } from './options';
@@ -15,6 +25,8 @@ export type AuthStackParamList = {
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+type RootParamList = AuthStackParamList & ApproverStackParamList;
+const navigationRef = createNavigationContainerRef<RootParamList>();
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -36,8 +48,55 @@ function AuthNavigator() {
   );
 }
 
-function RootSwitch() {
+function getProposalReference(response: NotificationResponse): string | null {
+  const proposalReference = response.notification.request.content.data?.proposalReference;
+  return typeof proposalReference === 'string' && proposalReference.length > 0
+    ? proposalReference
+    : null;
+}
+
+function RootSwitch({ navigationReady }: { navigationReady: boolean }) {
   const { user, isLoading } = useAuth();
+  const [lastNotificationResponse, setLastNotificationResponse] = useState<NotificationResponse | null>(null);
+  const pendingProposalReference = useRef<string | null>(null);
+
+  const openPendingProposal = useCallback(() => {
+    if (!user || !canAccessMobileReview(user) || isLoading || !navigationReady || !pendingProposalReference.current) return;
+
+    const documentId = pendingProposalReference.current;
+    pendingProposalReference.current = null;
+    void markLatestNotificationForProposalRead(documentId).catch(() => undefined);
+    navigationRef.navigate('DocumentReview', { documentId });
+    void clearLastNotificationResponse();
+  }, [isLoading, navigationReady, user]);
+
+  const receiveNotificationResponse = useCallback((response: NotificationResponse) => {
+    const proposalReference = getProposalReference(response);
+    if (!proposalReference) return;
+
+    pendingProposalReference.current = proposalReference;
+    openPendingProposal();
+  }, [openPendingProposal]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const subscription = addNotificationResponseListener(setLastNotificationResponse);
+    void getLastNotificationResponse().then((response) => {
+      if (isMounted && response) setLastNotificationResponse(response);
+    });
+    return () => {
+      isMounted = false;
+      subscription?.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (lastNotificationResponse) receiveNotificationResponse(lastNotificationResponse);
+  }, [lastNotificationResponse, receiveNotificationResponse]);
+
+  useEffect(() => {
+    openPendingProposal();
+  }, [openPendingProposal]);
 
   if (isLoading) {
     return (
@@ -60,11 +119,17 @@ function RootSwitch() {
 }
 
 export default function RootNavigator() {
+  const [navigationReady, setNavigationReady] = useState(false);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer theme={navigationTheme}>
-          <RootSwitch />
+        <NavigationContainer
+          onReady={() => setNavigationReady(true)}
+          ref={navigationRef}
+          theme={navigationTheme}
+        >
+          <RootSwitch navigationReady={navigationReady} />
         </NavigationContainer>
       </AuthProvider>
     </SafeAreaProvider>

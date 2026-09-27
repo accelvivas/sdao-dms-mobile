@@ -1,0 +1,117 @@
+SDAO DMS MOBILE PUSH NOTIFICATIONS
+Laravel Backend Handoff
+========================
+
+Purpose
+-------
+Enable Laravel to register approver devices for push notifications and send a
+notification only when an Activity Proposal needs review in the mobile app.
+The mobile app uses Expo SDK 57 and expo-notifications.
+
+Current status
+--------------
+The mobile project has expo-notifications installed, but the mobile API
+contract does not define push-token registration or notification behavior yet.
+The mobile app needs a backend contract before it can register tokens and
+receive proposal notifications end to end.
+
+Suggested authenticated API
+---------------------------
+Use Sanctum bearer authentication. Identify the user from the authenticated
+token; do not accept a user ID from the request body.
+
+POST /api/mobile/push-tokens
+Register or update the signed-in user's Expo push token. Upsert by token, and
+associate it with the authenticated user and device/platform metadata.
+
+Suggested JSON body:
+{
+  "token": "ExponentPushToken[...]",
+  "platform": "android",
+  "device_name": "SDAO DMS Mobile"
+}
+
+The token is a string. Validate its format and ensure one token is not linked
+to multiple users unintentionally. Support token rotation by updating the
+stored token when the app re-registers.
+
+DELETE /api/mobile/push-tokens
+Unregister the current device token when the user logs out or disables
+notifications.
+
+Suggested JSON body:
+{
+  "token": "ExponentPushToken[...]"
+}
+
+Alternatively, adapt the existing POST /api/mobile/logout flow so it also
+removes the current device's push-token registration. Coordinate this with the
+mobile client so it can identify which device token to remove.
+
+When to send notifications
+--------------------------
+Send a push only when an Activity Proposal reaches an approval stage where a
+specific mobile approver can act. Notify only the approver account(s) for whom
+the proposal is now in the review queue and permissions.can_act is true.
+Resolve recipients using the same server-side authorization/permission rules
+used to produce permissions.can_act for that proposal. Do not infer recipients
+from role names alone.
+
+Do not send notifications for unrelated app events or for routine proposal
+updates, or while a proposal remains at the same approver's stage. Avoid
+duplicates for repeated saves. If a proposal advances to another approver's
+stage, notify that stage's actionable approver(s). If a proposal is resubmitted
+and becomes actionable for review again, notify its current approver once.
+
+Suggested Expo Push Service payload
+-----------------------------------
+Send through Expo Push Service:
+POST https://exp.host/--/api/v2/push/send
+Content-Type: application/json
+
+Example:
+{
+  "to": "ExponentPushToken[...]",
+  "title": "Proposal ready for review",
+  "body": "An Activity Proposal is waiting in your review queue.",
+  "data": {
+    "proposalReference": "PROP-2026-057"
+  },
+  "channelId": "reviews",
+  "sound": "default"
+}
+
+Keep lock-screen text generic. Do not include student-sensitive or proposal
+contents in the notification body. The proposal reference in data lets the app
+open the proposal detail after the user taps the notification.
+
+Delivery and token cleanup
+--------------------------
+- Handle Expo Push Service ticket errors and receipts.
+- Remove tokens reported as DeviceNotRegistered or otherwise permanently
+  invalid.
+- Queue notification delivery so proposal actions are not delayed by push
+  service/network failures.
+- Log delivery failures without logging bearer tokens or exposing token values.
+- Do not fail proposal workflow actions when push delivery fails.
+
+Platform credentials and environment
+------------------------------------
+The Expo project needs an EAS project ID. Android FCM v1 credentials and iOS
+APNs credentials (if iOS is supported) are configured in Expo/EAS for the app
+build; they are not substitutes for the user's Sanctum API token.
+
+The mobile app needs a development/release build to test remote push on
+Android. Remote push notifications are not supported in Expo Go on Android
+from Expo SDK 53 onward.
+
+Information needed from the backend team
+----------------------------------------
+1. Confirm the token registration and unregistration routes and exact request
+   and response schemas.
+2. Confirm which workflow events should send notifications and how approvers
+   are selected for each stage.
+3. Confirm the tap payload key for the proposal reference (suggested:
+   proposalReference).
+4. Provide a test environment and test-user workflow for verifying token
+   registration, delivery, token cleanup, and notification taps.

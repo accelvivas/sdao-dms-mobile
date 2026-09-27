@@ -160,17 +160,16 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
 
   async function handleOpenAttachment(attachment: Document['attachments'][number]) {
     if (!document || openingAttachmentId) return;
-    setOpeningAttachmentId(attachment.id);
+    const attachmentId = String(attachment.id);
+    setOpeningAttachmentId(attachmentId);
     try {
-      const fileUri = await downloadProposalAttachment(document.id, attachment);
+      const downloadedAttachment = await downloadProposalAttachment(document.id, attachment);
       if (!(await Sharing.isAvailableAsync())) {
         throw new Error('Opening downloaded files is not available on this device.');
       }
-      await Sharing.shareAsync(fileUri, {
-        dialogTitle: `Open ${attachment.fileName}`,
-        mimeType: attachment.fileType.toLowerCase() === 'pdf'
-          ? 'application/pdf'
-          : 'application/octet-stream',
+      await Sharing.shareAsync(downloadedAttachment.uri, {
+        dialogTitle: `Open ${downloadedAttachment.fileName}`,
+        mimeType: downloadedAttachment.mimeType,
       });
     } catch (error) {
       const status = getApiErrorStatus(error);
@@ -199,7 +198,6 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
 
   return (
     <Screen scroll>
-      <Pressable onPress={() => navigation.goBack()} style={styles.backButton}><Ionicons color={colors.primary} name="arrow-back" size={20} /><Text style={styles.backText}>Back</Text></Pressable>
       <Text style={styles.kicker}>Activity Proposal</Text>
       <Text style={styles.title}>{document.title}</Text>
       <Text style={styles.organization}>{document.organizationName}</Text>
@@ -215,7 +213,7 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
 
       {details?.responsiblePersons?.length ? <Card style={styles.card}><Text style={styles.cardTitle}>Responsible Person(s)</Text>{details.responsiblePersons.map((person) => <View key={`${person.name}-${person.role}`} style={styles.personItem}><Text style={styles.personName}>{person.name}</Text><Text style={styles.body}>{person.role}</Text></View>)}</Card> : null}
 
-      <Card style={styles.card}><Text style={styles.cardTitle}>Attachments</Text>{document.attachments.length ? document.attachments.map((attachment) => <View key={attachment.id} style={styles.attachmentRow}><Text style={styles.attachmentName}>{attachment.fileName}</Text><Text style={styles.body}>{attachment.fileType} · {attachment.sizeLabel}</Text>{attachment.description ? <Text style={styles.body}>{attachment.description}</Text> : null}<Pressable accessibilityRole="button" disabled={openingAttachmentId !== null} onPress={() => void handleOpenAttachment(attachment)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, marginTop: 8, opacity: openingAttachmentId !== null && openingAttachmentId !== attachment.id ? 0.5 : 1 }}><Ionicons color={colors.primary} name="download-outline" size={20} />{openingAttachmentId === attachment.id ? <ActivityIndicator color={colors.primary} /> : <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '700' }}>Download / Open</Text>}</Pressable></View>) : <Text style={styles.body}>No attachments provided.</Text>}</Card>
+      <Card style={styles.card}><Text style={styles.cardTitle}>Attachments</Text>{document.attachments.length ? document.attachments.map((attachment) => { const attachmentId = String(attachment.id); return <View key={attachmentId} style={styles.attachmentRow}><Text style={styles.attachmentName}>{attachment.fileName}</Text><Text style={styles.body}>{attachment.fileType} · {attachment.sizeLabel}</Text>{attachment.description ? <Text style={styles.body}>{attachment.description}</Text> : null}<Pressable accessibilityRole="button" disabled={openingAttachmentId !== null} onPress={() => void handleOpenAttachment(attachment)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, marginTop: 8, opacity: openingAttachmentId !== null && openingAttachmentId !== attachmentId ? 0.5 : 1 }}><Ionicons color={colors.primary} name="download-outline" size={20} />{openingAttachmentId === attachmentId ? <ActivityIndicator color={colors.primary} /> : <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '700' }}>Download / Open</Text>}</Pressable></View>; }) : <Text style={styles.body}>No attachments provided.</Text>}</Card>
 
       <Card style={styles.card}><Text style={styles.cardTitle}>{document.currentStageLabel ?? approval?.stageLabel ?? STAGE_LABELS[document.currentStage] ?? document.currentStage}</Text><Text style={styles.approvalMeta}>{approval ? `${approval.approvedCount} / ${approval.totalCount} approved` : `Step ${document.currentStep} of ${document.totalSteps}`}</Text>{canReview ? <>{document.permissions.can_approve ? <View style={styles.actionSection}><Text style={styles.actionTitle}>✓ Approve</Text><AppButton label="Approve" loading={isUpdating} onPress={() => confirmAction('approve')} /></View> : null}{document.permissions.can_request_revision ? <View style={[styles.actionSection, styles.dividedSection]}><Text style={styles.actionTitle}>↩ Return for Revision</Text><TextInput maxLength={2000} multiline onChangeText={setRemarks} placeholder="Explain what the student needs to revise..." placeholderTextColor={colors.textMuted} style={styles.remarks} textAlignVertical="top" value={remarks} /><Text style={styles.optionalLabel}>Flag sections needing revision (optional)</Text>{revisionSections.map((section) => <View key={section} style={{ marginTop: 8 }}><Pressable onPress={() => toggleSection(section)} style={styles.flagRow}><Ionicons color={selectedSections.includes(section) ? colors.primary : colors.textMuted} name={selectedSections.includes(section) ? 'checkbox' : 'square-outline'} size={22} /><Text style={styles.flagText}>{section}</Text></Pressable>{selectedSections.includes(section) ? <TextInput maxLength={2000} multiline onChangeText={(note) => setSectionNotes((current) => ({ ...current, [section]: note }))} placeholder={`Note specific to ${section} (optional)...`} placeholderTextColor={colors.textMuted} style={[styles.remarks, { minHeight: 64, marginLeft: 28, marginTop: 8 }]} textAlignVertical="top" value={sectionNotes[section] ?? ''} /> : null}</View>)}<AppButton label="Return for Revision" disabled={!remarks.trim()} loading={isUpdating} onPress={() => confirmAction('revision')} style={styles.returnButton} variant="ghost" /></View> : null}{document.permissions.can_reject ? <View style={[styles.actionSection, styles.dividedSection]}><Text style={styles.rejectTitle}>⊗ Reject (permanent)</Text><TextInput maxLength={2000} multiline onChangeText={setRejectRemarks} placeholder="Explain why this proposal is being rejected..." placeholderTextColor={colors.textMuted} style={styles.remarks} textAlignVertical="top" value={rejectRemarks} /><AppButton label="Reject" disabled={!rejectRemarks.trim()} loading={isUpdating} onPress={() => confirmAction('reject')} variant="danger" /></View> : null}</> : <Text style={styles.body}>No action is currently required from you.</Text>}</Card>
 

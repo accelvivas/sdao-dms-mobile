@@ -6,6 +6,7 @@ export const config = {
   apiBaseUrl: (extra.apiBaseUrl as string | undefined) ?? 'https://example.invalid/api',
   supabaseUrl: (extra.supabaseUrl as string | undefined) ?? '',
   supabaseAnonKey: (extra.supabaseAnonKey as string | undefined) ?? '',
+  notificationsEnabled: extra.notificationsEnabled !== false,
   useMockData: false,
   mockDelayMs: 500,
   mockNetworkError: false,

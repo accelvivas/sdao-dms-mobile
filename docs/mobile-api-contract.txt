@@ -309,11 +309,13 @@ Not found: HTTP 404
 9. ATTACHMENTS
 --------------
 
-The current mobile app displays attachment metadata only.
-It does not currently call an attachment download or viewing endpoint.
-
-A future endpoint could be:
-
 GET /documents/{documentId}/attachments/{attachmentId}/download
 
-This endpoint is not currently required by the mobile app.
+Requires a Sanctum bearer token and mobile approver access. The caller must be
+authorized to view the proposal. Use the proposal reference from the queue,
+such as PROP-2026-057, rather than a numeric proposal ID.
+
+The endpoint streams the file bytes directly using the attachment MIME type
+and original filename. It returns HTTP 404 if the proposal reference is
+invalid, the attachment does not belong to that proposal, or the stored file
+is missing.
