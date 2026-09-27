@@ -3,6 +3,10 @@
         "npx.cmd": true,
         "git.exe": true,
         "npm run typecheck": true,
-        "npm.cmd": true
-    }
+        "npm.cmd": true,
+        "npx tsc": true,
+        ".\\node_modules\\.bin\\tsc.cmd": true,
+        ".\\node_modules\\.bin\\expo.cmd": true
+    },
+    "CodeGPT.apiKey": "OpenAI"
 }

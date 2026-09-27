@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   CompositeNavigationProp,
+  useFocusEffect,
   useNavigation,
 } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -12,15 +13,18 @@ import { Card } from '../../components/Card';
 import { Screen } from '../../components/Screen';
 import { StatusBadge } from '../../components/StatusBadge';
 import { colors } from '../../constants/theme';
+import { useAuth } from '../../context/AuthContext';
 import type {
   ApproverStackParamList,
   ApproverTabParamList,
 } from '../../navigation/ApproverNavigator';
 import { getReviewQueue } from '../../services/documentService';
 import type { Document } from '../../types/document';
+import { getApiErrorMessage, getApiErrorStatus } from '../../utils/apiError';
 import { formatDate } from '../../utils/date';
 
 export default function ReviewQueueScreen() {
+  const { logout } = useAuth();
   const navigation =
     useNavigation<
       CompositeNavigationProp<
@@ -33,7 +37,7 @@ export default function ReviewQueueScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  async function loadQueue(refresh = false) {
+  const loadQueue = useCallback(async (refresh = false) => {
     if (refresh) {
       setIsRefreshing(true);
     } else {
@@ -43,18 +47,24 @@ export default function ReviewQueueScreen() {
     try {
       setError('');
       const items = await getReviewQueue();
-      setDocuments(items);
-    } catch {
-      setError('Unable to load Activity Proposals. Please try again.');
+      setDocuments(items.filter((document) => document.permissions.can_act));
+    } catch (caught) {
+      if (getApiErrorStatus(caught) === 401) {
+        await logout();
+        return;
+      }
+      setError(getApiErrorMessage(caught, 'Unable to load Activity Proposals. Please try again.'));
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }
+  }, [logout]);
 
-  useEffect(() => {
-    loadQueue().catch(() => undefined);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      void loadQueue();
+    }, [loadQueue]),
+  );
 
   const oldestDocument = documents.reduce<Document | null>((oldest, document) => {
     if (!oldest || document.submittedAt < oldest.submittedAt) {
@@ -67,7 +77,11 @@ export default function ReviewQueueScreen() {
     <Screen onRefresh={() => loadQueue(true)} refreshing={isRefreshing} scroll>
       <Text style={styles.title}>Activity Proposals</Text>
       <Text style={styles.queueTitle}>Review Queue</Text>
-      <Text style={styles.subtitle}>1 proposal awaiting your review.</Text>
+      <Text style={styles.subtitle}>
+        {isLoading
+          ? 'Loading your review queue.'
+          : `${documents.length} proposal${documents.length === 1 ? '' : 's'} awaiting your review.`}
+      </Text>
 
       {isLoading ? <Card><Text style={styles.emptyText}>Loading queue...</Text></Card> : null}
       {error ? <Card><Text style={styles.errorText}>{error}</Text></Card> : null}
@@ -102,7 +116,7 @@ export default function ReviewQueueScreen() {
               <Text style={styles.proposalTitle}>{document.title}</Text>
               <Text style={styles.organization}>{document.submittedBy}</Text>
               <Text style={styles.metadata}>
-                Off Calendar {'\u00b7'} Step {document.currentStep}
+                {document.currentStageLabel ?? `Step ${document.currentStep} of ${document.totalSteps}`}
               </Text>
               <View style={styles.proposalFooter}>
                 <StatusBadge status={document.status} />

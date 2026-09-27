@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Sharing from 'expo-sharing';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AppButton } from '../../components/AppButton';
@@ -8,18 +9,19 @@ import { Card } from '../../components/Card';
 import { Screen } from '../../components/Screen';
 import { StatusBadge } from '../../components/StatusBadge';
 import { colors, radius, spacing } from '../../constants/theme';
+import { useAuth } from '../../context/AuthContext';
 import type { ApproverStackParamList } from '../../navigation/ApproverNavigator';
+import { downloadProposalAttachment } from '../../services/attachmentService';
 import { approveActivityProposal, getActivityProposal, rejectActivityProposal, requestActivityProposalRevision } from '../../services/documentService';
 import type { Document } from '../../types/document';
+import { getApiErrorMessage, getApiErrorStatus } from '../../utils/apiError';
 import { formatDate, formatDateTime } from '../../utils/date';
 
 type Props = NativeStackScreenProps<ApproverStackParamList, 'DocumentReview'>;
 
-const STAGE_LABELS: Record<Document['currentStage'], string> = {
+const STAGE_LABELS: Record<string, string> = {
   submitted: 'Submitted', adviser_review: 'Adviser Review', program_chair_review: 'Program Chair Review', completed: 'Completed', rejected: 'Rejected',
 };
-
-const DEFAULT_REVISION_SECTIONS = ['RSO Info', 'Activity Details', 'Partner Orgs & SDG', 'Budget', 'Schedule & Venue', 'Objectives', 'Activity Description', 'Responsible Persons', 'General'];
 
 function formatCurrency(value?: number) {
   return value === undefined ? '-' : `₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -31,37 +33,117 @@ function InfoField({ label, value }: { label: string; value?: string }) {
 }
 
 export default function DocumentReviewScreen({ navigation, route }: Props) {
+  const { logout } = useAuth();
   const [document, setDocument] = useState<Document | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [remarks, setRemarks] = useState('');
+  const [rejectRemarks, setRejectRemarks] = useState('');
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
+  const [sectionNotes, setSectionNotes] = useState<Record<string, string>>({});
+  const [openingAttachmentId, setOpeningAttachmentId] = useState<string | null>(null);
+
+  const loadDocument = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError('');
+    try {
+      setDocument(await getActivityProposal(route.params.documentId));
+    } catch (error) {
+      const status = getApiErrorStatus(error);
+      if (status === 401) {
+        await logout();
+        return;
+      }
+      const fallback = status === 403
+        ? 'You are not allowed to view this proposal.'
+        : status === 404
+          ? 'This proposal could not be found.'
+          : 'Unable to load this Activity Proposal. Please try again.';
+      setLoadError(getApiErrorMessage(error, fallback));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [logout, route.params.documentId]);
 
   useEffect(() => {
-    let isMounted = true;
-    getActivityProposal(route.params.documentId).then((item) => { if (isMounted) setDocument(item); }).catch(() => { if (isMounted) setDocument(null); }).finally(() => { if (isMounted) setIsLoading(false); });
-    return () => { isMounted = false; };
-  }, [route.params.documentId]);
+    void loadDocument();
+  }, [loadDocument]);
 
   async function handleAction(action: 'approve' | 'revision' | 'reject') {
     if (!document) return;
+    const typedRevisionRemarks = remarks.trim();
+    const typedRejectRemarks = rejectRemarks.trim();
+    if (action === 'revision' && !typedRevisionRemarks) {
+      Alert.alert('Remarks required', 'Enter an explanation for the requested revisions.');
+      return;
+    }
+    if (action === 'reject' && !typedRejectRemarks) {
+      Alert.alert('Remarks required', 'Enter a reason for rejecting this proposal.');
+      return;
+    }
+
     try {
       setIsUpdating(true);
+      const validSections = document.activityProposal?.revisionSections ?? [];
+      const requestedSections = selectedSections.filter((section) => validSections.includes(section));
+      const requestedSectionNotes = requestedSections.flatMap((section) => {
+        const note = sectionNotes[section]?.trim();
+        return note ? [`${section}: ${note}`] : [];
+      });
       const revisionRemarks = [
-        remarks || 'Please review the requested changes before resubmitting.',
-        selectedSections.length ? `Sections needing revision: ${selectedSections.join(', ')}` : '',
+        typedRevisionRemarks,
+        requestedSections.length
+          ? `Sections needing revision: ${requestedSections.join(', ')}`
+          : '',
+        requestedSectionNotes.length
+          ? `Notes by section:\n${requestedSectionNotes.join('\n')}`
+          : '',
       ].filter(Boolean).join('\n\n');
+      if (action === 'revision' && revisionRemarks.length > 2000) {
+        Alert.alert('Remarks too long', 'Revision remarks must not exceed 2000 characters.');
+        return;
+      }
       const updatedDocument = action === 'approve'
         ? await approveActivityProposal(document.id)
         : action === 'revision'
           ? await requestActivityProposalRevision(document.id, revisionRemarks)
-          : await rejectActivityProposal(document.id, remarks || 'This request was rejected for review.');
-      setDocument(await getActivityProposal(updatedDocument.id));
+          : await rejectActivityProposal(document.id, typedRejectRemarks);
+      setDocument(updatedDocument);
       setRemarks('');
+      setRejectRemarks('');
       setSelectedSections([]);
+      setSectionNotes({});
+      if (action === 'approve') {
+        navigation.goBack();
+        return;
+      }
       Alert.alert('Review submitted', 'The Activity Proposal was updated successfully.');
     } catch (caught) {
-      Alert.alert('Action failed', caught instanceof Error ? caught.message : 'Unable to update the document.');
+      const status = getApiErrorStatus(caught);
+      if (status === 401) {
+        await logout();
+        return;
+      }
+      if (status === 403) {
+        try {
+          setDocument(await getActivityProposal(document.id));
+          Alert.alert('Proposal updated', 'This proposal is no longer at your stage. The current state has been loaded.');
+        } catch (refreshError) {
+          if (getApiErrorStatus(refreshError) === 401) {
+            await logout();
+            return;
+          }
+          Alert.alert('Proposal changed', getApiErrorMessage(refreshError, 'This proposal is no longer at your stage, and its current state could not be loaded.'));
+        }
+        return;
+      }
+      const fallback = status === 404
+        ? 'This proposal could not be found.'
+        : status === 422
+          ? 'Review validation failed. Check the remarks and try again.'
+          : 'Unable to update the document. Please try again.';
+      Alert.alert('Action failed', getApiErrorMessage(caught, fallback));
     } finally {
       setIsUpdating(false);
     }
@@ -76,13 +158,44 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
     setSelectedSections((current) => current.includes(section) ? current.filter((item) => item !== section) : [...current, section]);
   }
 
+  async function handleOpenAttachment(attachment: Document['attachments'][number]) {
+    if (!document || openingAttachmentId) return;
+    setOpeningAttachmentId(attachment.id);
+    try {
+      const fileUri = await downloadProposalAttachment(document.id, attachment);
+      if (!(await Sharing.isAvailableAsync())) {
+        throw new Error('Opening downloaded files is not available on this device.');
+      }
+      await Sharing.shareAsync(fileUri, {
+        dialogTitle: `Open ${attachment.fileName}`,
+        mimeType: attachment.fileType.toLowerCase() === 'pdf'
+          ? 'application/pdf'
+          : 'application/octet-stream',
+      });
+    } catch (error) {
+      const status = getApiErrorStatus(error);
+      if (status === 401) {
+        await logout();
+        return;
+      }
+      const fallback = status === 403
+        ? 'You are not allowed to download this attachment.'
+        : status === 404
+          ? 'This attachment could not be found.'
+          : 'Unable to download or open this attachment. Please try again.';
+      Alert.alert('Attachment unavailable', getApiErrorMessage(error, fallback));
+    } finally {
+      setOpeningAttachmentId(null);
+    }
+  }
+
   if (isLoading) return <Screen scroll><Text style={styles.emptyText}>Loading Activity Proposal...</Text></Screen>;
-  if (!document) return <Screen scroll><Text style={styles.emptyText}>Unable to load this Activity Proposal.</Text></Screen>;
+  if (!document) return <Screen scroll><Text style={styles.emptyText}>{loadError || 'Unable to load this Activity Proposal.'}</Text><AppButton label="Retry" onPress={() => void loadDocument()} style={styles.returnButton} variant="secondary" /></Screen>;
 
   const details = document.activityProposal;
   const approval = details?.approval;
-  const canReview = document.permissions.can_approve || document.permissions.can_request_revision || document.permissions.can_reject;
-  const revisionSections = details?.revisionSections ?? DEFAULT_REVISION_SECTIONS;
+  const canReview = document.permissions.can_act;
+  const revisionSections = details?.revisionSections ?? [];
 
   return (
     <Screen scroll>
@@ -102,11 +215,11 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
 
       {details?.responsiblePersons?.length ? <Card style={styles.card}><Text style={styles.cardTitle}>Responsible Person(s)</Text>{details.responsiblePersons.map((person) => <View key={`${person.name}-${person.role}`} style={styles.personItem}><Text style={styles.personName}>{person.name}</Text><Text style={styles.body}>{person.role}</Text></View>)}</Card> : null}
 
-      <Card style={styles.card}><Text style={styles.cardTitle}>Attachments</Text>{document.attachments.length ? document.attachments.map((attachment) => <View key={attachment.id} style={styles.attachmentRow}><Text style={styles.attachmentName}>{attachment.fileName}</Text><Text style={styles.body}>{attachment.description ?? `${attachment.fileType} · ${attachment.sizeLabel}`}</Text></View>) : <Text style={styles.body}>No attachments provided.</Text>}</Card>
+      <Card style={styles.card}><Text style={styles.cardTitle}>Attachments</Text>{document.attachments.length ? document.attachments.map((attachment) => <View key={attachment.id} style={styles.attachmentRow}><Text style={styles.attachmentName}>{attachment.fileName}</Text><Text style={styles.body}>{attachment.fileType} · {attachment.sizeLabel}</Text>{attachment.description ? <Text style={styles.body}>{attachment.description}</Text> : null}<Pressable accessibilityRole="button" disabled={openingAttachmentId !== null} onPress={() => void handleOpenAttachment(attachment)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, marginTop: 8, opacity: openingAttachmentId !== null && openingAttachmentId !== attachment.id ? 0.5 : 1 }}><Ionicons color={colors.primary} name="download-outline" size={20} />{openingAttachmentId === attachment.id ? <ActivityIndicator color={colors.primary} /> : <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '700' }}>Download / Open</Text>}</Pressable></View>) : <Text style={styles.body}>No attachments provided.</Text>}</Card>
 
-      <Card style={styles.card}><Text style={styles.cardTitle}>{approval?.stageLabel ?? STAGE_LABELS[document.currentStage]}</Text><Text style={styles.approvalMeta}>{approval ? `${approval.approvedCount} / ${approval.totalCount} approved` : `Step ${document.currentStep} of ${document.totalSteps}`}</Text>{canReview ? <>{document.permissions.can_approve ? <View style={styles.actionSection}><Text style={styles.actionTitle}>✓ Approve</Text><AppButton label="Approve" loading={isUpdating} onPress={() => confirmAction('approve')} /></View> : null}{document.permissions.can_request_revision ? <View style={[styles.actionSection, styles.dividedSection]}><Text style={styles.actionTitle}>↩ Return for Revision</Text><TextInput multiline onChangeText={setRemarks} placeholder="Explain what the student needs to revise..." placeholderTextColor={colors.textMuted} style={styles.remarks} textAlignVertical="top" value={remarks} /><Text style={styles.optionalLabel}>Flag sections needing revision (optional)</Text>{revisionSections.map((section) => <Pressable key={section} onPress={() => toggleSection(section)} style={styles.flagRow}><Ionicons color={selectedSections.includes(section) ? colors.primary : colors.textMuted} name={selectedSections.includes(section) ? 'checkbox' : 'square-outline'} size={22} /><Text style={styles.flagText}>{section}</Text></Pressable>)}<AppButton label="Return for Revision" loading={isUpdating} onPress={() => confirmAction('revision')} style={styles.returnButton} variant="ghost" /></View> : null}{document.permissions.can_reject ? <View style={[styles.actionSection, styles.dividedSection]}><Text style={styles.rejectTitle}>⊗ Reject (permanent)</Text><AppButton label="Reject" loading={isUpdating} onPress={() => confirmAction('reject')} variant="danger" /></View> : null}</> : <Text style={styles.body}>No action is currently required from you.</Text>}</Card>
+      <Card style={styles.card}><Text style={styles.cardTitle}>{document.currentStageLabel ?? approval?.stageLabel ?? STAGE_LABELS[document.currentStage] ?? document.currentStage}</Text><Text style={styles.approvalMeta}>{approval ? `${approval.approvedCount} / ${approval.totalCount} approved` : `Step ${document.currentStep} of ${document.totalSteps}`}</Text>{canReview ? <>{document.permissions.can_approve ? <View style={styles.actionSection}><Text style={styles.actionTitle}>✓ Approve</Text><AppButton label="Approve" loading={isUpdating} onPress={() => confirmAction('approve')} /></View> : null}{document.permissions.can_request_revision ? <View style={[styles.actionSection, styles.dividedSection]}><Text style={styles.actionTitle}>↩ Return for Revision</Text><TextInput maxLength={2000} multiline onChangeText={setRemarks} placeholder="Explain what the student needs to revise..." placeholderTextColor={colors.textMuted} style={styles.remarks} textAlignVertical="top" value={remarks} /><Text style={styles.optionalLabel}>Flag sections needing revision (optional)</Text>{revisionSections.map((section) => <View key={section} style={{ marginTop: 8 }}><Pressable onPress={() => toggleSection(section)} style={styles.flagRow}><Ionicons color={selectedSections.includes(section) ? colors.primary : colors.textMuted} name={selectedSections.includes(section) ? 'checkbox' : 'square-outline'} size={22} /><Text style={styles.flagText}>{section}</Text></Pressable>{selectedSections.includes(section) ? <TextInput maxLength={2000} multiline onChangeText={(note) => setSectionNotes((current) => ({ ...current, [section]: note }))} placeholder={`Note specific to ${section} (optional)...`} placeholderTextColor={colors.textMuted} style={[styles.remarks, { minHeight: 64, marginLeft: 28, marginTop: 8 }]} textAlignVertical="top" value={sectionNotes[section] ?? ''} /> : null}</View>)}<AppButton label="Return for Revision" disabled={!remarks.trim()} loading={isUpdating} onPress={() => confirmAction('revision')} style={styles.returnButton} variant="ghost" /></View> : null}{document.permissions.can_reject ? <View style={[styles.actionSection, styles.dividedSection]}><Text style={styles.rejectTitle}>⊗ Reject (permanent)</Text><TextInput maxLength={2000} multiline onChangeText={setRejectRemarks} placeholder="Explain why this proposal is being rejected..." placeholderTextColor={colors.textMuted} style={styles.remarks} textAlignVertical="top" value={rejectRemarks} /><AppButton label="Reject" disabled={!rejectRemarks.trim()} loading={isUpdating} onPress={() => confirmAction('reject')} variant="danger" /></View> : null}</> : <Text style={styles.body}>No action is currently required from you.</Text>}</Card>
 
-      <Card style={styles.card}><Text style={styles.cardTitle}>Revision History</Text>{document.history.map((item, index) => <View key={item.id} style={styles.timelineItem}><View style={styles.timelineRail}><View style={styles.timelineDot} />{index < document.history.length - 1 ? <View style={styles.timelineLine} /> : null}</View><View style={styles.timelineCopy}><Text style={styles.historyAction}>{item.action}</Text><Text style={styles.body}>{item.actorName} · {item.actorRole}</Text><Text style={styles.historyTime}>{formatDateTime(item.timestamp)}</Text>{item.remarks ? <Text style={styles.body}>{item.remarks}</Text> : null}</View></View>)}</Card>
+      <Card style={styles.card}><Text style={styles.cardTitle}>Revision History</Text>{document.history.map((item, index) => <View key={item.id} style={styles.timelineItem}><View style={styles.timelineRail}><View style={styles.timelineDot} />{index < document.history.length - 1 ? <View style={styles.timelineLine} /> : null}</View><View style={styles.timelineCopy}><Text style={styles.historyAction}>{item.action}</Text><Text style={styles.body}>{item.stageLabel ?? item.stage}</Text><Text style={styles.body}>{item.actorName} · {item.actorRole}</Text><Text style={styles.historyTime}>{formatDateTime(item.timestamp)}</Text>{item.remarks ? <Text style={styles.body}>{item.remarks}</Text> : null}</View></View>)}</Card>
     </Screen>
   );
 }

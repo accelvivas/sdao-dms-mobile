@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import {
   CompositeNavigationProp,
   useNavigation,
@@ -70,11 +69,6 @@ export default function ApproverHomeScreen() {
           <Text style={styles.statNumber}>{documents.length}</Text>
           <Text style={styles.statLabelLight}>Proposals awaiting review</Text>
         </View>
-        <View style={styles.stat}>
-          <Ionicons color={colors.primary} name="checkmark-done-outline" size={20} />
-          <Text style={styles.statNumberDark}>12</Text>
-          <Text style={styles.statLabel}>Reviewed today</Text>
-        </View>
       </View>
 
       <SectionHeader title="Activity Proposals needing attention" />
@@ -143,20 +137,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#fff',
   },
-  statNumberDark: {
-    marginTop: 8,
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.text,
-  },
   statLabelLight: {
     marginTop: 6,
     color: 'rgba(255,255,255,0.8)',
-  },
-  statLabel: {
-    marginTop: 4,
-    color: colors.textMuted,
-    fontSize: 12,
   },
   divider: {
     height: 1,

@@ -7,17 +7,13 @@ export type DocumentStatus =
 
 export type DocumentType = 'activity_proposal';
 
-export type DocumentStage =
-  | 'submitted'
-  | 'adviser_review'
-  | 'program_chair_review'
-  | 'completed'
-  | 'rejected';
+export type DocumentStage = string;
 
 export type DocumentTransition = {
   id: string;
   action: string;
   stage: DocumentStage;
+  stageLabel?: string;
   actorName: string;
   actorRole: string;
   timestamp: string;
@@ -91,6 +87,7 @@ export type Document = {
   submittedAt: string;
   updatedAt: string;
   currentStage: DocumentStage;
+  currentStageLabel?: string;
   currentStep: number;
   totalSteps: number;
   organizationName: string;

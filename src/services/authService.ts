@@ -102,6 +102,10 @@ export function getAuthErrorMessage(error: unknown): string {
     if (error.response?.status === 403) {
       return 'This account is not allowed to sign in.';
     }
+
+    if (error.response?.status === 429) {
+      return 'Too many sign-in attempts. Please wait a while before trying again.';
+    }
   }
 
   if (error instanceof Error && error.message) {
@@ -172,6 +176,11 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
     email: credentials.email,
     password: credentials.password,
     device_name: Device.deviceName ?? 'SDAO DMS Mobile',
+    ...(credentials.code
+      ? { code: credentials.code }
+      : credentials.recoveryCode
+        ? { recovery_code: credentials.recoveryCode }
+        : {}),
   });
 
   const user = await completeAuthenticatedSession(data.token);

@@ -10,6 +10,29 @@ import {
 import { throwMockNetworkError, waitForMockResponse } from '../mocks/mockUtils';
 import type { Document } from '../types/document';
 
+function normalizeApiKeys<T>(value: unknown): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeApiKeys(item)) as T;
+  }
+
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => {
+        if (key === 'permissions') {
+          return [key, item];
+        }
+
+        return [
+          key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase()),
+          normalizeApiKeys(item),
+        ];
+      }),
+    ) as T;
+  }
+
+  return value as T;
+}
+
 export async function getDocumentById(id: string): Promise<Document> {
   if (config.useMockData) {
     await waitForMockResponse();
@@ -21,8 +44,8 @@ export async function getDocumentById(id: string): Promise<Document> {
     return document;
   }
 
-  const { data } = await apiClient.get<Document>(`/documents/${id}`);
-  return data;
+  const { data } = await apiClient.get<unknown>(`/documents/${id}`);
+  return normalizeApiKeys<Document>(data);
 }
 
 export async function getReviewQueue(): Promise<Document[]> {
@@ -34,8 +57,8 @@ export async function getReviewQueue(): Promise<Document[]> {
     );
   }
 
-  const { data } = await apiClient.get<Document[]>('/documents/queue');
-  return data;
+  const { data } = await apiClient.get<unknown[]>('/documents/queue');
+  return data.map((item) => normalizeApiKeys<Document>(item));
 }
 
 export const getActivityProposal = getDocumentById;
@@ -50,8 +73,8 @@ export async function approveDocument(id: string): Promise<Document> {
     return approveMockDocument(id);
   }
 
-  const { data } = await apiClient.post<Document>(`/documents/${id}/approve`);
-  return data;
+  const { data } = await apiClient.post<unknown>(`/documents/${id}/approve`);
+  return normalizeApiKeys<Document>(data);
 }
 
 export async function requestDocumentRevision(
@@ -64,10 +87,10 @@ export async function requestDocumentRevision(
     return requestMockDocumentRevision(id, remarks);
   }
 
-  const { data } = await apiClient.post<Document>(`/documents/${id}/request-revision`, {
+  const { data } = await apiClient.post<unknown>(`/documents/${id}/request-revision`, {
     remarks,
   });
-  return data;
+  return normalizeApiKeys<Document>(data);
 }
 
 export async function rejectDocument(id: string, remarks: string): Promise<Document> {
@@ -77,6 +100,6 @@ export async function rejectDocument(id: string, remarks: string): Promise<Docum
     return rejectMockDocument(id, remarks);
   }
 
-  const { data } = await apiClient.post<Document>(`/documents/${id}/reject`, { remarks });
-  return data;
+  const { data } = await apiClient.post<unknown>(`/documents/${id}/reject`, { remarks });
+  return normalizeApiKeys<Document>(data);
 }

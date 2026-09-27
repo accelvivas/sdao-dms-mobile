@@ -32,6 +32,8 @@ export type User = {
 export type LoginCredentials = {
   email: string;
   password: string;
+  code?: string;
+  recoveryCode?: string;
 };
 
 export type LoginSuccess = {
