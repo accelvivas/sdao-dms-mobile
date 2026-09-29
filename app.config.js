@@ -3,7 +3,7 @@ export default {
   expo: {
     name: "sdao-dms-mobile",
     slug: "sdao-dms-mobile",
-    version: "1.0.0",
+    version: "1.0.1",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -12,6 +12,7 @@ export default {
     },
     android: {
       package: process.env.ANDROID_PACKAGE ?? "com.nulpsdao.sdaodmsmobile",
+      versionCode: 2,
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
         foregroundImage: "./assets/android-icon-foreground.png",
@@ -24,6 +25,7 @@ export default {
       favicon: "./assets/favicon.png",
     },
     plugins: [
+      "expo-font",
       "expo-secure-store",
       ["expo-notifications", { defaultChannel: "reviews", color: "#164E63" }],
     ],
