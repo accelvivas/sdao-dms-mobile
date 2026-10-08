@@ -1,11 +1,14 @@
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { AppButton } from '../../components/AppButton';
 import { Card } from '../../components/Card';
 import { Screen } from '../../components/Screen';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import type { ApproverStackParamList } from '../../navigation/ApproverNavigator';
 
 const ROLE_LABELS: Record<string, string> = {
   approver: 'Approver',
@@ -28,6 +31,7 @@ function formatRoleLabel(role: string): string {
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<ApproverStackParamList>>();
   const initials = (user?.name ?? 'SDAO User')
     .split(' ')
     .filter(Boolean)
@@ -104,6 +108,12 @@ export default function ProfileScreen() {
         </Text>
       </Card>
 
+      <AppButton
+        label="Privacy and security"
+        onPress={() => navigation.navigate('PrivacyAndSecurity')}
+        style={styles.privacyButton}
+        variant="secondary"
+      />
       <AppButton label="Sign out" onPress={confirmLogout} variant="danger" />
     </Screen>
   );
@@ -200,5 +210,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     color: colors.textMuted,
     ...typography.supporting,
+  },
+  privacyButton: {
+    marginBottom: spacing.sm,
   },
 });

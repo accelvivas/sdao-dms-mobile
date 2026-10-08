@@ -28,7 +28,7 @@ function isRunningInExpoGo(): boolean {
 
 function getNotificationsModule(): NotificationsModule | null {
   if (
-    !config.notificationsEnabled
+    !config.pushNotificationsEnabled
     || config.useMockData
     || Platform.OS === 'web'
     || isRunningInExpoGo()
@@ -75,6 +75,7 @@ export async function registerPushToken(
       await notifications.setNotificationChannelAsync('reviews', {
         name: 'Proposal reviews',
         importance: notifications.AndroidImportance.HIGH,
+        lockscreenVisibility: notifications.AndroidNotificationVisibility.PRIVATE,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#164E63',
       });
@@ -116,7 +117,7 @@ export async function registerPushToken(
 
 export function addPushTokenRefreshListener(): NotificationSubscription | null {
   if (
-    !config.notificationsEnabled
+    !config.pushNotificationsEnabled
     || config.useMockData
     || Platform.OS === 'web'
     || isRunningInExpoGo()

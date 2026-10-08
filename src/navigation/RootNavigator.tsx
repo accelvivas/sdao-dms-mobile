@@ -2,9 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import type { NotificationResponse } from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  disableAppSwitcherProtectionAsync,
+  enableAppSwitcherProtectionAsync,
+  usePreventScreenCapture,
+} from 'expo-screen-capture';
 
 import { colors } from '../constants/theme';
 import { AuthProvider, useAuth } from '../context/AuthContext';
@@ -16,6 +21,7 @@ import {
   getLastNotificationResponse,
 } from '../services/pushNotificationService';
 import type { ApproverStackParamList } from './ApproverNavigator';
+import { applyAvailableSecurityUpdate } from '../services/updateService';
 import { canAccessMobileReview } from '../types/auth';
 import ApproverNavigator from './ApproverNavigator';
 import { stackScreenOptions } from './options';
@@ -46,6 +52,31 @@ function AuthNavigator() {
       <AuthStack.Screen component={LoginScreen} name="Login" />
     </AuthStack.Navigator>
   );
+}
+
+function ProtectedApproverNavigator() {
+  usePreventScreenCapture('sdao-authenticated-content');
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return undefined;
+
+    void enableAppSwitcherProtectionAsync(1).catch(() => undefined);
+    return () => {
+      void disableAppSwitcherProtectionAsync().catch(() => undefined);
+    };
+  }, []);
+
+  return <ApproverNavigator />;
+}
+
+function SecurityUpdateController() {
+  useEffect(() => {
+    void applyAvailableSecurityUpdate().catch(() => {
+      // A network failure must not prevent access to the embedded, signed application build.
+    });
+  }, []);
+
+  return null;
 }
 
 function getProposalReference(response: NotificationResponse): string | null {
@@ -112,7 +143,7 @@ function RootSwitch({ navigationReady }: { navigationReady: boolean }) {
   }
 
   if (canAccessMobileReview(user)) {
-    return <ApproverNavigator />;
+    return <ProtectedApproverNavigator />;
   }
 
   return <AuthNavigator />;
@@ -124,6 +155,7 @@ export default function RootNavigator() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
+        <SecurityUpdateController />
         <NavigationContainer
           onReady={() => setNavigationReady(true)}
           ref={navigationRef}

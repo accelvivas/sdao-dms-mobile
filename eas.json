@@ -2,6 +2,7 @@
   "build": {
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "env": {
         "NOTIFICATIONS_ENABLED": "false"
       },
@@ -9,9 +10,22 @@
         "buildType": "apk"
       }
     },
-    "production": {
+    "release-apk": {
+      "distribution": "internal",
+      "channel": "release",
       "env": {
-        "NOTIFICATIONS_ENABLED": "true"
+        "NOTIFICATIONS_ENABLED": "true",
+        "PUSH_NOTIFICATIONS_ENABLED": "false"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "env": {
+        "NOTIFICATIONS_ENABLED": "true",
+        "PUSH_NOTIFICATIONS_ENABLED": "false"
       }
     }
   }

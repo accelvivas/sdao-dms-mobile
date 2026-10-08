@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 
-import { colors, shadow, spacing } from '../constants/theme';
+import { colors, shadow } from '../constants/theme';
 
 export function tabScreenOptions(
   icon: keyof typeof Ionicons.glyphMap,
@@ -28,13 +28,8 @@ export const tabNavigatorOptions: BottomTabNavigationOptions = {
     backgroundColor: colors.surface,
     borderTopColor: colors.border,
     borderTopWidth: 1,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
     ...shadow.card,
     shadowOffset: { width: 0, height: -3 },
-  },
-  tabBarItemStyle: {
-    minHeight: 54,
   },
   tabBarHideOnKeyboard: true,
 };

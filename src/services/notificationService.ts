@@ -1,4 +1,9 @@
 import { apiClient } from '../api/client';
+import {
+  notificationPageSchema,
+  readNotificationSchema,
+  unreadCountSchema,
+} from '../validation/apiSchemas';
 
 type ApiReviewNotification = {
   id: string;
@@ -8,21 +13,6 @@ type ApiReviewNotification = {
   proposal_reference: string | null;
   read_at: string | null;
   created_at: string;
-};
-
-type NotificationPageResponse = {
-  data: ApiReviewNotification[];
-  meta: {
-    unread_count: number;
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-  };
-  links: {
-    prev: string | null;
-    next: string | null;
-  };
 };
 
 export type ReviewNotification = {
@@ -56,31 +46,33 @@ function mapNotification(notification: ApiReviewNotification): ReviewNotificatio
 }
 
 export async function getReviewNotifications(page = 1): Promise<ReviewNotificationPage> {
-  const { data } = await apiClient.get<NotificationPageResponse>('/mobile/notifications', {
-    params: { page },
+  const safePage = Number.isInteger(page) && page > 0 ? page : 1;
+  const { data } = await apiClient.get<unknown>('/mobile/notifications', {
+    params: { page: safePage },
   });
+  const payload = notificationPageSchema.parse(data);
 
   return {
-    notifications: data.data.map(mapNotification),
-    unreadCount: data.meta.unread_count,
-    currentPage: data.meta.current_page,
-    lastPage: data.meta.last_page,
-    total: data.meta.total,
+    notifications: payload.data.map(mapNotification),
+    unreadCount: payload.meta.unread_count,
+    currentPage: payload.meta.current_page,
+    lastPage: payload.meta.last_page,
+    total: payload.meta.total,
   };
 }
 
 export async function getUnreadReviewNotificationCount(): Promise<number> {
-  const { data } = await apiClient.get<{ data: { unread_count: number } }>(
+  const { data } = await apiClient.get<unknown>(
     '/mobile/notifications/unread-count',
   );
-  return data.data.unread_count;
+  return unreadCountSchema.parse(data).data.unread_count;
 }
 
 export async function markReviewNotificationRead(notificationId: string): Promise<string> {
-  const { data } = await apiClient.patch<{ data: { id: string; read_at: string } }>(
+  const { data } = await apiClient.patch<unknown>(
     `/mobile/notifications/${encodeURIComponent(notificationId)}/read`,
   );
-  return data.data.read_at;
+  return readNotificationSchema.parse(data).data.read_at;
 }
 
 export async function markAllReviewNotificationsRead(): Promise<void> {

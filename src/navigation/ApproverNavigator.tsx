@@ -6,6 +6,7 @@ import DocumentReviewScreen from '../screens/approver/DocumentReviewScreen';
 import ReviewNotificationsScreen from '../screens/approver/ReviewNotificationsScreen';
 import ReviewQueueScreen from '../screens/approver/ReviewQueueScreen';
 import ProfileScreen from '../screens/shared/ProfileScreen';
+import PrivacyAndSecurityScreen from '../screens/shared/PrivacyAndSecurityScreen';
 import { stackScreenOptions, tabNavigatorOptions, tabScreenOptions } from './options';
 
 export type ApproverTabParamList = {
@@ -18,6 +19,7 @@ export type ApproverStackParamList = {
   ApproverTabs: undefined;
   DocumentReview: { documentId: string };
   ReviewNotifications: undefined;
+  PrivacyAndSecurity: undefined;
 };
 
 const Tabs = createBottomTabNavigator<ApproverTabParamList>();
@@ -68,6 +70,11 @@ export default function ApproverNavigator() {
         component={ReviewNotificationsScreen}
         name="ReviewNotifications"
         options={{ title: 'Review Notifications' }}
+      />
+      <Stack.Screen
+        component={PrivacyAndSecurityScreen}
+        name="PrivacyAndSecurity"
+        options={{ title: 'Privacy and Security' }}
       />
     </Stack.Navigator>
   );

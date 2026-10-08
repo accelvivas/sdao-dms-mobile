@@ -9,6 +9,8 @@ export type DownloadedProposalAttachment = {
   mimeType: string;
 };
 
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+
 function getResponseFileName(contentDisposition: string | undefined): string | undefined {
   if (!contentDisposition) return undefined;
 
@@ -43,10 +45,17 @@ export async function downloadProposalAttachment(
     { responseType: 'arraybuffer', timeout: 120000 },
   );
 
+  if (data.byteLength > MAX_ATTACHMENT_BYTES) {
+    throw new Error('This attachment exceeds the 25 MB mobile download limit.');
+  }
+
   const contentDisposition = headers['content-disposition'];
   const fileName = getResponseFileName(contentDisposition) ?? attachment.fileName;
   const safeFileName = sanitizeFileName(fileName);
-  const mimeType = String(headers['content-type'] ?? '').split(';')[0].trim()
+  const candidateMimeType = String(headers['content-type'] ?? '').split(';')[0].trim();
+  const mimeType = (/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i.test(candidateMimeType)
+    ? candidateMimeType
+    : '')
     || (attachment.fileType.includes('/')
       ? attachment.fileType
       : attachment.fileType.toLowerCase() === 'pdf'
@@ -54,9 +63,16 @@ export async function downloadProposalAttachment(
         : 'application/octet-stream');
   const localFile = new File(
     Paths.cache,
-    `${safeAttachmentId}-${Date.now()}-${safeFileName}`,
+    `sdao-attachment-${safeAttachmentId}-${Date.now()}-${safeFileName}`,
   );
   localFile.create({ intermediates: true, overwrite: true });
   localFile.write(new Uint8Array(data));
-  return { uri: localFile.uri, fileName, mimeType };
+  return { uri: localFile.uri, fileName: safeFileName, mimeType };
+}
+
+export function deleteDownloadedProposalAttachment(uri: string): void {
+  const localFile = new File(uri);
+  if (localFile.exists) {
+    localFile.delete();
+  }
 }

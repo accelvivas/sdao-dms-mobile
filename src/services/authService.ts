@@ -11,6 +11,11 @@ import {
   getMockUserByToken,
 } from '../mocks/mockAuth';
 import { throwMockNetworkError, waitForMockResponse } from '../mocks/mockUtils';
+import {
+  apiUserSchema,
+  loginCredentialsSchema,
+  loginResponseSchema,
+} from '../validation/apiSchemas';
 import type {
   LoginCredentials,
   LoginResult,
@@ -33,10 +38,6 @@ type LaravelUserPayload = {
   capabilities?: {
     can_access_mobile_review?: boolean;
   };
-};
-
-type LoginResponse = {
-  token: string;
 };
 
 function normalizeUser(payload: LaravelUserPayload): User {
@@ -91,10 +92,6 @@ export function getAuthErrorMessage(error: unknown): string {
       return firstFieldError;
     }
 
-    if (typeof data?.message === 'string' && data.message.length > 0) {
-      return data.message;
-    }
-
     if (error.response?.status === 401) {
       return 'These credentials do not match our records.';
     }
@@ -105,6 +102,10 @@ export function getAuthErrorMessage(error: unknown): string {
 
     if (error.response?.status === 429) {
       return 'Too many sign-in attempts. Please wait a while before trying again.';
+    }
+
+    if (typeof data?.message === 'string' && data.message.length > 0) {
+      return data.message;
     }
   }
 
@@ -157,33 +158,38 @@ export async function fetchAuthenticatedUser(): Promise<User> {
     return assertMobileAccess(user);
   }
 
-  const { data } = await apiClient.get<LaravelUserPayload>('/mobile/user');
-  return assertMobileAccess(normalizeUser(data));
+  const { data } = await apiClient.get<unknown>('/mobile/user');
+  return assertMobileAccess(normalizeUser(apiUserSchema.parse(data)));
 }
 
 export async function login(credentials: LoginCredentials): Promise<LoginResult> {
+  const parsedCredentials = loginCredentialsSchema.safeParse(credentials);
+  if (!parsedCredentials.success) {
+    throw new Error('Enter a valid email address and password.');
+  }
+
   if (config.useMockData) {
     await waitForMockResponse();
     throwMockNetworkError();
-    const account = getMockAccount(credentials);
+    const account = getMockAccount(parsedCredentials.data);
     const user = assertMobileAccess(getMockUser(account));
 
     await persistMobileToken(getMockToken(user));
     return { user };
   }
 
-  const { data } = await apiClient.post<LoginResponse>('/mobile/login', {
-    email: credentials.email,
-    password: credentials.password,
+  const { data } = await apiClient.post<unknown>('/mobile/login', {
+    email: parsedCredentials.data.email,
+    password: parsedCredentials.data.password,
     device_name: Device.deviceName ?? 'SDAO DMS Mobile',
-    ...(credentials.code
-      ? { code: credentials.code }
-      : credentials.recoveryCode
-        ? { recovery_code: credentials.recoveryCode }
+    ...(parsedCredentials.data.code
+      ? { code: parsedCredentials.data.code }
+      : parsedCredentials.data.recoveryCode
+        ? { recovery_code: parsedCredentials.data.recoveryCode }
         : {}),
   });
 
-  const user = await completeAuthenticatedSession(data.token);
+  const user = await completeAuthenticatedSession(loginResponseSchema.parse(data).token);
   assertMobileAccess(user);
   return { user };
 }

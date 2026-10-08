@@ -20,13 +20,17 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import type { ApproverStackParamList } from '../../navigation/ApproverNavigator';
-import { downloadProposalAttachment } from '../../services/attachmentService';
+import {
+  deleteDownloadedProposalAttachment,
+  downloadProposalAttachment,
+} from '../../services/attachmentService';
 import {
   approveActivityProposal,
   getActivityProposal,
   rejectActivityProposal,
   requestActivityProposalRevision,
 } from '../../services/documentService';
+import { authenticateSensitiveAction } from '../../services/sensitiveActionAuth';
 import type { Document } from '../../types/document';
 import { getApiErrorMessage, getApiErrorStatus } from '../../utils/apiError';
 import { formatDate, formatDateTime } from '../../utils/date';
@@ -106,6 +110,25 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
     }
     if (action === 'reject' && !typedRejectRemarks) {
       Alert.alert('Remarks required', 'Enter a reason for rejecting this proposal.');
+      return;
+    }
+
+    try {
+      const actionLabels = {
+        approve: 'proposal approval',
+        revision: 'revision request',
+        reject: 'proposal rejection',
+      };
+      const authentication = await authenticateSensitiveAction(actionLabels[action]);
+      if (!authentication.success) {
+        Alert.alert('Identity confirmation required', authentication.message);
+        return;
+      }
+    } catch {
+      Alert.alert(
+        'Identity confirmation unavailable',
+        'The device could not verify your identity. No proposal action was submitted.',
+      );
       return;
     }
 
@@ -216,9 +239,11 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
   async function handleOpenAttachment(attachment: Document['attachments'][number]) {
     if (!document || openingAttachmentId) return;
     const attachmentId = String(attachment.id);
+    let downloadedUri: string | null = null;
     setOpeningAttachmentId(attachmentId);
     try {
       const downloadedAttachment = await downloadProposalAttachment(document.id, attachment);
+      downloadedUri = downloadedAttachment.uri;
       if (!(await Sharing.isAvailableAsync())) {
         throw new Error('Opening downloaded files is not available on this device.');
       }
@@ -239,6 +264,13 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
           : 'Unable to download or open this attachment. Please try again.';
       Alert.alert('Attachment unavailable', getApiErrorMessage(error, fallback));
     } finally {
+      if (downloadedUri) {
+        try {
+          deleteDownloadedProposalAttachment(downloadedUri);
+        } catch {
+          // The operating system also clears cache files; cleanup failure is non-fatal.
+        }
+      }
       setOpeningAttachmentId(null);
     }
   }
