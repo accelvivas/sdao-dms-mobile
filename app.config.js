@@ -3,7 +3,7 @@ export default {
   expo: {
     name: "SDAO DMS",
     slug: "sdao-dms-mobile",
-    version: "1.0.4",
+    version: "1.0.5",
     runtimeVersion: {
       policy: "appVersion",
     },
@@ -13,7 +13,7 @@ export default {
       fallbackToCacheTimeout: 5000,
     },
     orientation: "portrait",
-    icon: "./assets/sdao-dms-icon.png",
+    icon: "./assets/nuicon-app.png",
     userInterfaceStyle: "light",
     ios: {
       supportsTablet: true,
@@ -25,7 +25,7 @@ export default {
     },
     android: {
       package: process.env.ANDROID_PACKAGE ?? "com.nulpsdao.sdaodmsmobile",
-      versionCode: 5,
+      versionCode: 6,
       allowBackup: false,
       blockedPermissions: [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -34,7 +34,7 @@ export default {
       ],
       adaptiveIcon: {
         backgroundColor: "#FFFFFF",
-        foregroundImage: "./assets/sdao-dms-adaptive-foreground.png",
+        foregroundImage: "./assets/nuicon-adaptive.png",
       },
       predictiveBackGestureEnabled: false,
     },
