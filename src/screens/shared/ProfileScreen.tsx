@@ -109,7 +109,7 @@ export default function ProfileScreen() {
       </Card>
 
       <AppButton
-        label="Privacy and security"
+        label="Privacy Notice"
         onPress={() => navigation.navigate('PrivacyAndSecurity')}
         style={styles.privacyButton}
         variant="secondary"

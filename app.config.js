@@ -3,7 +3,7 @@ export default {
   expo: {
     name: "SDAO DMS",
     slug: "sdao-dms-mobile",
-    version: "1.0.6",
+    version: "1.0.7",
     runtimeVersion: {
       policy: "appVersion",
     },
@@ -25,7 +25,7 @@ export default {
     },
     android: {
       package: process.env.ANDROID_PACKAGE ?? "com.nulpsdao.sdaodmsmobile",
-      versionCode: 7,
+      versionCode: 8,
       allowBackup: false,
       blockedPermissions: [
         "android.permission.READ_EXTERNAL_STORAGE",

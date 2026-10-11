@@ -23,8 +23,10 @@ import type { LoginCredentials, LoginResult, User } from '../types/auth';
 type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
+  hasAcceptedPrivacyNotice: boolean;
   login: (credentials: LoginCredentials) => Promise<LoginResult>;
   logout: () => Promise<void>;
+  acceptPrivacyNotice: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -32,6 +34,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasAcceptedPrivacyNotice, setHasAcceptedPrivacyNotice] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -54,16 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !hasAcceptedPrivacyNotice) return;
 
     void registerPushToken();
     const tokenSubscription = addPushTokenRefreshListener();
     return () => tokenSubscription?.remove();
-  }, [user?.id]);
+  }, [hasAcceptedPrivacyNotice, user?.id]);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     const result = await loginRequest(credentials);
 
+    setHasAcceptedPrivacyNotice(false);
     setUser(result.user);
     return result;
   }, []);
@@ -71,12 +75,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await unregisterPushToken();
     await logoutRequest();
+    setHasAcceptedPrivacyNotice(false);
     setUser(null);
   }, []);
 
+  const acceptPrivacyNotice = useCallback(() => {
+    setHasAcceptedPrivacyNotice(true);
+  }, []);
+
   const value = useMemo(
-    () => ({ user, isLoading, login, logout }),
-    [user, isLoading, login, logout],
+    () => ({
+      user,
+      isLoading,
+      hasAcceptedPrivacyNotice,
+      login,
+      logout,
+      acceptPrivacyNotice,
+    }),
+    [user, isLoading, hasAcceptedPrivacyNotice, login, logout, acceptPrivacyNotice],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

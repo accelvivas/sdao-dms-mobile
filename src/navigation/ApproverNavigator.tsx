@@ -74,7 +74,7 @@ export default function ApproverNavigator() {
       <Stack.Screen
         component={PrivacyAndSecurityScreen}
         name="PrivacyAndSecurity"
-        options={{ title: 'Privacy and Security' }}
+        options={{ title: 'Privacy Notice' }}
       />
     </Stack.Navigator>
   );

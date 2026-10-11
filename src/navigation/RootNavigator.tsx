@@ -14,6 +14,7 @@ import {
 import { colors } from '../constants/theme';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/auth/LoginScreen';
+import PrivacyAndSecurityScreen from '../screens/shared/PrivacyAndSecurityScreen';
 import { markLatestNotificationForProposalRead } from '../services/notificationService';
 import {
   addNotificationResponseListener,
@@ -87,19 +88,19 @@ function getProposalReference(response: NotificationResponse): string | null {
 }
 
 function RootSwitch({ navigationReady }: { navigationReady: boolean }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, hasAcceptedPrivacyNotice } = useAuth();
   const [lastNotificationResponse, setLastNotificationResponse] = useState<NotificationResponse | null>(null);
   const pendingProposalReference = useRef<string | null>(null);
 
   const openPendingProposal = useCallback(() => {
-    if (!user || !canAccessMobileReview(user) || isLoading || !navigationReady || !pendingProposalReference.current) return;
+    if (!user || !canAccessMobileReview(user) || !hasAcceptedPrivacyNotice || isLoading || !navigationReady || !pendingProposalReference.current) return;
 
     const documentId = pendingProposalReference.current;
     pendingProposalReference.current = null;
     void markLatestNotificationForProposalRead(documentId).catch(() => undefined);
     navigationRef.navigate('DocumentReview', { documentId });
     void clearLastNotificationResponse();
-  }, [isLoading, navigationReady, user]);
+  }, [hasAcceptedPrivacyNotice, isLoading, navigationReady, user]);
 
   const receiveNotificationResponse = useCallback((response: NotificationResponse) => {
     const proposalReference = getProposalReference(response);
@@ -140,6 +141,10 @@ function RootSwitch({ navigationReady }: { navigationReady: boolean }) {
 
   if (!user) {
     return <AuthNavigator />;
+  }
+
+  if (!hasAcceptedPrivacyNotice) {
+    return <PrivacyAndSecurityScreen requiresDecision />;
   }
 
   if (canAccessMobileReview(user)) {
