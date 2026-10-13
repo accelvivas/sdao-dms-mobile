@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import ApproverHomeScreen from '../screens/approver/ApproverHomeScreen';
+import ApprovalLogsScreen from '../screens/approver/ApprovalLogsScreen';
 import DocumentReviewScreen from '../screens/approver/DocumentReviewScreen';
 import ReviewNotificationsScreen from '../screens/approver/ReviewNotificationsScreen';
 import ReviewQueueScreen from '../screens/approver/ReviewQueueScreen';
@@ -12,6 +13,7 @@ import { stackScreenOptions, tabNavigatorOptions, tabScreenOptions } from './opt
 export type ApproverTabParamList = {
   ApproverHome: undefined;
   ReviewQueue: undefined;
+  ApprovalLogs: undefined;
   Profile: undefined;
 };
 
@@ -42,6 +44,14 @@ function ApproverTabs() {
         options={{
           title: 'Queue',
           ...tabScreenOptions('reader-outline', 'reader'),
+        }}
+      />
+      <Tabs.Screen
+        component={ApprovalLogsScreen}
+        name="ApprovalLogs"
+        options={{
+          title: 'Logs',
+          ...tabScreenOptions('time-outline', 'time'),
         }}
       />
       <Tabs.Screen

@@ -167,3 +167,35 @@ export const readNotificationSchema = z.object({
     read_at: dateTimeSchema,
   }).passthrough(),
 }).passthrough();
+
+export const approvalLogSchema = z.object({
+  id: z.string().trim().min(1).max(200),
+  proposal_reference: z.string().trim().min(1).max(200),
+  proposal_title: z.string().trim().min(1).max(1_000),
+  action: z.enum(['approved', 'returned', 'rejected']),
+  approver: z.object({
+    id: identifierSchema,
+    name: z.string().trim().min(1).max(300),
+    role: z.string().trim().min(1).max(200),
+  }).passthrough(),
+  from_status: z.string().trim().min(1).max(100).nullable(),
+  to_status: z.string().trim().min(1).max(100),
+  from_stage: z.string().trim().min(1).max(100),
+  to_stage: z.string().trim().min(1).max(100),
+  remarks: z.string().max(10_000).nullable(),
+  created_at: dateTimeSchema,
+}).passthrough();
+
+export const approvalLogPageSchema = z.object({
+  data: z.array(approvalLogSchema).max(500),
+  meta: z.object({
+    current_page: z.number().int().positive(),
+    last_page: z.number().int().positive(),
+    per_page: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+  }).passthrough(),
+  links: z.object({
+    prev: z.string().url().nullable(),
+    next: z.string().url().nullable(),
+  }).passthrough(),
+}).passthrough();

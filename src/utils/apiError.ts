@@ -34,6 +34,19 @@ export function getApiErrorStatus(error: unknown): number | undefined {
   return axios.isAxiosError(error) ? error.response?.status : undefined;
 }
 
+export function getApiFieldErrorMessage(
+  error: unknown,
+  field: string,
+): string | undefined {
+  if (!axios.isAxiosError<ApiErrorPayload>(error)) return undefined;
+
+  const value = parseJsonErrorBody(error.response?.data)?.errors?.[field];
+  const messages = Array.isArray(value) ? value : [value];
+  return messages.find(
+    (message): message is string => typeof message === 'string' && message.trim().length > 0,
+  )?.trim();
+}
+
 export function getApiErrorMessage(error: unknown, fallback: string): string {
   if (!axios.isAxiosError<ApiErrorPayload>(error)) {
     return fallback;

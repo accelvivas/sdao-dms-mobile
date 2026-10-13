@@ -213,8 +213,8 @@ function updateMockDocument(
   return cloneDocument(document);
 }
 
-export function approveMockDocument(id: string): Document {
-  return updateMockDocument(id, 'approved', 'Approved');
+export function approveMockDocument(id: string, remarks?: string): Document {
+  return updateMockDocument(id, 'approved', 'Approved', remarks);
 }
 
 export function requestMockDocumentRevision(id: string, remarks: string): Document {

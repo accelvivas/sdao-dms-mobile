@@ -1,5 +1,6 @@
 import { config } from '../constants/config';
 import { apiClient } from '../api/client';
+import { invalidateApprovalLogs } from './approvalLogService';
 import {
   approveMockDocument,
   getMockDocumentById,
@@ -13,6 +14,10 @@ import {
   parseDocumentListPayload,
   parseDocumentPayload,
 } from '../validation/apiSchemas';
+
+type ApprovePayload = {
+  remarks?: string;
+};
 
 function normalizeApiKeys<T>(value: unknown): T {
   if (Array.isArray(value)) {
@@ -73,17 +78,28 @@ export const approveActivityProposal = approveDocument;
 export const requestActivityProposalRevision = requestDocumentRevision;
 export const rejectActivityProposal = rejectDocument;
 
-export async function approveDocument(id: string): Promise<Document> {
+export async function approveDocument(id: string, remarks?: string): Promise<Document> {
+  const safeRemarks = remarks?.trim();
+  if (safeRemarks && safeRemarks.length > 1_000) {
+    throw new Error('Approval remarks must not exceed 1,000 characters.');
+  }
+
   if (config.useMockData) {
     await waitForMockResponse();
     throwMockNetworkError();
-    return approveMockDocument(id);
+    const document = approveMockDocument(id, safeRemarks);
+    invalidateApprovalLogs();
+    return document;
   }
 
+  const payload: ApprovePayload = safeRemarks ? { remarks: safeRemarks } : {};
   const { data } = await apiClient.post<unknown>(
     `/documents/${encodeURIComponent(id)}/approve`,
+    payload,
   );
-  return parseDocumentPayload(normalizeApiKeys<unknown>(data));
+  const document = parseDocumentPayload(normalizeApiKeys<unknown>(data));
+  invalidateApprovalLogs();
+  return document;
 }
 
 export async function requestDocumentRevision(
@@ -98,7 +114,9 @@ export async function requestDocumentRevision(
   if (config.useMockData) {
     await waitForMockResponse();
     throwMockNetworkError();
-    return requestMockDocumentRevision(id, safeRemarks);
+    const document = requestMockDocumentRevision(id, safeRemarks);
+    invalidateApprovalLogs();
+    return document;
   }
 
   const { data } = await apiClient.post<unknown>(
@@ -107,7 +125,9 @@ export async function requestDocumentRevision(
       remarks: safeRemarks,
     },
   );
-  return parseDocumentPayload(normalizeApiKeys<unknown>(data));
+  const document = parseDocumentPayload(normalizeApiKeys<unknown>(data));
+  invalidateApprovalLogs();
+  return document;
 }
 
 export async function rejectDocument(id: string, remarks: string): Promise<Document> {
@@ -119,12 +139,16 @@ export async function rejectDocument(id: string, remarks: string): Promise<Docum
   if (config.useMockData) {
     await waitForMockResponse();
     throwMockNetworkError();
-    return rejectMockDocument(id, safeRemarks);
+    const document = rejectMockDocument(id, safeRemarks);
+    invalidateApprovalLogs();
+    return document;
   }
 
   const { data } = await apiClient.post<unknown>(
     `/documents/${encodeURIComponent(id)}/reject`,
     { remarks: safeRemarks },
   );
-  return parseDocumentPayload(normalizeApiKeys<unknown>(data));
+  const document = parseDocumentPayload(normalizeApiKeys<unknown>(data));
+  invalidateApprovalLogs();
+  return document;
 }

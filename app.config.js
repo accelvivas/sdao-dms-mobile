@@ -43,6 +43,7 @@ export default {
     },
     plugins: [
       "expo-font",
+      "@react-native-community/datetimepicker",
       ["expo-secure-store", { configureAndroidBackup: true }],
       [
         "expo-local-authentication",

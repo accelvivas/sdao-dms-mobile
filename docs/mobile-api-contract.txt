@@ -213,6 +213,17 @@ POST /documents/{documentId}/approve
 Request body:
 {}
 
+At the executive_director_review stage only, the app may include optional
+final approval remarks:
+{
+  "remarks": "Final feedback for the organization."
+}
+
+The backend must accept remarks as a nullable string with a maximum of 1,000
+characters and pass it to the approval engine as the approved transition's
+comment. The backend must derive the current stage itself; remarks sent for
+any earlier approval stage must not be recorded.
+
 Return the updated full Activity Proposal document.
 
 
@@ -319,3 +330,60 @@ The endpoint streams the file bytes directly using the attachment MIME type
 and original filename. It returns HTTP 404 if the proposal reference is
 invalid, the attachment does not belong to that proposal, or the stored file
 is missing.
+
+
+10. MOBILE APPROVAL LOGS
+------------------------
+
+GET /mobile/approval-logs
+
+Returns mobile-origin approved, returned, and rejected actions for Activity
+Proposals the authenticated approver is authorized to view. This endpoint is
+read-only. The app must not submit source, approver identity, timestamps, or
+log IDs.
+
+Optional query parameters:
+page=<positive integer>
+search=<proposal reference, proposal title, or approver name>
+action=<approved|returned|rejected>
+date_from=<YYYY-MM-DD>
+date_to=<YYYY-MM-DD>
+
+The date range is inclusive and uses Asia/Manila calendar dates. Response
+timestamps are ISO-8601 UTC and must be displayed in the device's local time.
+
+Response:
+{
+  "data": [
+    {
+      "id": "log-123",
+      "proposal_reference": "PROP-2026-057",
+      "proposal_title": "IT Week 2026",
+      "action": "approved",
+      "approver": {
+        "id": 10,
+        "name": "Juan Dela Cruz",
+        "role": "Dean"
+      },
+      "from_status": "in_review",
+      "to_status": "in_review",
+      "from_stage": "dean_review",
+      "to_stage": "sdao_review",
+      "remarks": null,
+      "created_at": "2026-10-13T00:30:00.000Z"
+    }
+  ],
+  "meta": {
+    "current_page": 1,
+    "last_page": 1,
+    "per_page": 20,
+    "total": 1
+  },
+  "links": {
+    "prev": null,
+    "next": null
+  }
+}
+
+Invalid filters return HTTP 422. Authentication and mobile-access failures
+return HTTP 401 and HTTP 403 respectively.

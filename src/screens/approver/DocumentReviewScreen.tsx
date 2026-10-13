@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -32,7 +35,11 @@ import {
 } from '../../services/documentService';
 import { authenticateSensitiveAction } from '../../services/sensitiveActionAuth';
 import type { Document } from '../../types/document';
-import { getApiErrorMessage, getApiErrorStatus } from '../../utils/apiError';
+import {
+  getApiErrorMessage,
+  getApiErrorStatus,
+  getApiFieldErrorMessage,
+} from '../../utils/apiError';
 import { formatDate, formatDateTime } from '../../utils/date';
 
 type Props = NativeStackScreenProps<ApproverStackParamList, 'DocumentReview'>;
@@ -41,7 +48,12 @@ const STAGE_LABELS: Record<string, string> = {
   submitted: 'Submitted',
   adviser_review: 'Adviser Review',
   program_chair_review: 'Program Chair Review',
+  dean_review: 'Dean Review',
   principal_review: 'Principal Review',
+  sdao_review: 'SDAO Review',
+  assistant_director_review: 'Assistant Director Review',
+  academic_director_review: 'Academic Director Review',
+  executive_director_review: 'Executive Director Review',
   completed: 'Completed',
   rejected: 'Rejected',
 };
@@ -70,6 +82,9 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [remarks, setRemarks] = useState('');
   const [rejectRemarks, setRejectRemarks] = useState('');
+  const [approvalRemarks, setApprovalRemarks] = useState('');
+  const [approvalRemarksError, setApprovalRemarksError] = useState('');
+  const [isExecutiveApprovalOpen, setIsExecutiveApprovalOpen] = useState(false);
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [sectionNotes, setSectionNotes] = useState<Record<string, string>>({});
   const [openingAttachmentId, setOpeningAttachmentId] = useState<string | null>(null);
@@ -102,6 +117,9 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
 
   async function handleAction(action: 'approve' | 'revision' | 'reject') {
     if (!document) return;
+    const typedApprovalRemarks = document.currentStage === 'executive_director_review'
+      ? approvalRemarks.trim()
+      : undefined;
     const typedRevisionRemarks = remarks.trim();
     const typedRejectRemarks = rejectRemarks.trim();
     if (action === 'revision' && !typedRevisionRemarks) {
@@ -158,13 +176,16 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
       }
 
       const updatedDocument = action === 'approve'
-        ? await approveActivityProposal(document.id)
+        ? await approveActivityProposal(document.id, typedApprovalRemarks)
         : action === 'revision'
           ? await requestActivityProposalRevision(document.id, revisionRemarks)
           : await rejectActivityProposal(document.id, typedRejectRemarks);
       setDocument(updatedDocument);
       setRemarks('');
       setRejectRemarks('');
+      setApprovalRemarks('');
+      setApprovalRemarksError('');
+      setIsExecutiveApprovalOpen(false);
       setSelectedSections([]);
       setSectionNotes({});
 
@@ -176,10 +197,12 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
     } catch (caught: unknown) {
       const status = getApiErrorStatus(caught);
       if (status === 401) {
+        setIsExecutiveApprovalOpen(false);
         await logout();
         return;
       }
       if (status === 403) {
+        setIsExecutiveApprovalOpen(false);
         try {
           setDocument(await getActivityProposal(document.id));
           Alert.alert(
@@ -200,6 +223,13 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
           );
         }
         return;
+      }
+      if (status === 422 && action === 'approve') {
+        const remarksError = getApiFieldErrorMessage(caught, 'remarks');
+        if (remarksError) {
+          setApprovalRemarksError(remarksError);
+          return;
+        }
       }
       const fallback = status === 404
         ? 'This proposal could not be found.'
@@ -309,6 +339,7 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
   const details = document.activityProposal;
   const approval = details?.approval;
   const canReview = document.permissions.can_act;
+  const isExecutiveDirectorStage = document.currentStage === 'executive_director_review';
   const revisionSections = details?.revisionSections ?? [];
   const stageLabel = document.currentStageLabel
     ?? approval?.stageLabel
@@ -316,7 +347,8 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
     ?? document.currentStage;
 
   return (
-    <Screen scroll>
+    <>
+      <Screen scroll>
       <Text style={styles.kicker}>Activity Proposal</Text>
       <Text style={styles.title}>{document.title}</Text>
       <Text style={styles.organization}>{document.organizationName}</Text>
@@ -486,7 +518,14 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
                 <AppButton
                   label="Approve"
                   loading={isUpdating}
-                  onPress={() => confirmAction('approve')}
+                  onPress={() => {
+                    if (isExecutiveDirectorStage) {
+                      setApprovalRemarksError('');
+                      setIsExecutiveApprovalOpen(true);
+                    } else {
+                      confirmAction('approve');
+                    }
+                  }}
                 />
               </View>
             ) : null}
@@ -587,7 +626,7 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
       </Card>
 
       <Card style={styles.card}>
-        <Text style={styles.cardTitle}>Revision History</Text>
+        <Text style={styles.cardTitle}>Workflow & Approval History</Text>
         {document.history.map((item, index) => (
           <View key={item.id} style={styles.timelineItem}>
             <View style={styles.timelineRail}>
@@ -604,7 +643,85 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
           </View>
         ))}
       </Card>
-    </Screen>
+      </Screen>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isUpdating) setIsExecutiveApprovalOpen(false);
+        }}
+        statusBarTranslucent
+        transparent
+        visible={isExecutiveApprovalOpen}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Approve this proposal?</Text>
+              <Pressable
+                accessibilityLabel="Close approval confirmation"
+                accessibilityRole="button"
+                disabled={isUpdating}
+                hitSlop={8}
+                onPress={() => setIsExecutiveApprovalOpen(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons color={colors.textMuted} name="close" size={24} />
+              </Pressable>
+            </View>
+            <Text style={styles.modalDescription}>
+              This is the final approval and will complete the proposal workflow.
+            </Text>
+
+            <View style={styles.modalFieldHeading}>
+              <Text style={styles.modalFieldLabel}>
+                Remarks <Text style={styles.modalOptional}>(optional)</Text>
+              </Text>
+              <Text style={styles.modalCounter}>{approvalRemarks.length}/1000</Text>
+            </View>
+            <TextInput
+              editable={!isUpdating}
+              maxLength={1000}
+              multiline
+              onChangeText={(value) => {
+                setApprovalRemarks(value);
+                if (approvalRemarksError) setApprovalRemarksError('');
+              }}
+              placeholder="Add final feedback for the organization..."
+              placeholderTextColor={colors.textMuted}
+              style={[
+                styles.approvalRemarks,
+                approvalRemarksError ? styles.approvalRemarksInvalid : undefined,
+              ]}
+              textAlignVertical="top"
+              value={approvalRemarks}
+            />
+            {approvalRemarksError ? (
+              <Text style={styles.approvalRemarksError}>{approvalRemarksError}</Text>
+            ) : null}
+
+            <View style={styles.modalActions}>
+              <AppButton
+                disabled={isUpdating}
+                label="Cancel"
+                onPress={() => setIsExecutiveApprovalOpen(false)}
+                style={styles.modalActionButton}
+                variant="secondary"
+              />
+              <AppButton
+                label="Confirm Approval"
+                loading={isUpdating}
+                onPress={() => void handleAction('approve')}
+                style={styles.modalActionButton}
+              />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </>
   );
 }
 
@@ -930,5 +1047,91 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     color: colors.text,
     ...typography.supporting,
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.lg,
+    backgroundColor: colors.overlay,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  modalTitle: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '800',
+  },
+  modalCloseButton: {
+    width: 44,
+    height: 44,
+    marginRight: -spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalDescription: {
+    marginTop: spacing.sm,
+    color: colors.textMuted,
+    ...typography.body,
+  },
+  modalFieldHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xs,
+  },
+  modalFieldLabel: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalOptional: {
+    color: colors.textMuted,
+    fontWeight: '400',
+  },
+  modalCounter: {
+    color: colors.textMuted,
+    fontSize: 12,
+  },
+  approvalRemarks: {
+    minHeight: 112,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+    backgroundColor: colors.surface,
+  },
+  approvalRemarksInvalid: {
+    borderColor: colors.danger,
+  },
+  approvalRemarksError: {
+    marginTop: spacing.xs,
+    color: colors.danger,
+    fontSize: 13,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  modalActionButton: {
+    flex: 1,
   },
 });
