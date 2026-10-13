@@ -3,7 +3,7 @@ export default {
   expo: {
     name: "SDAO DMS",
     slug: "sdao-dms-mobile",
-    version: "1.0.7",
+    version: "1.0.8",
     runtimeVersion: {
       policy: "appVersion",
     },
@@ -25,7 +25,8 @@ export default {
     },
     android: {
       package: process.env.ANDROID_PACKAGE ?? "com.nulpsdao.sdaodmsmobile",
-      versionCode: 8,
+      googleServicesFile: "./google-services.json",
+      versionCode: 9,
       allowBackup: false,
       blockedPermissions: [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -67,6 +68,7 @@ export default {
     // ↓ bago lang idinagdag
     extra: {
       apiBaseUrl: process.env.API_BASE_URL ?? "https://nulpsdao.com/api",
+      webSystemUrl: process.env.WEB_SYSTEM_URL ?? "https://nulpsdao.com",
       supabaseUrl: process.env.SUPABASE_URL ?? "",
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY ?? "",
       notificationsEnabled: process.env.NOTIFICATIONS_ENABLED !== "false",

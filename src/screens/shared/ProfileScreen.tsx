@@ -1,4 +1,4 @@
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppButton } from '../../components/AppButton';
 import { Card } from '../../components/Card';
 import { Screen } from '../../components/Screen';
+import { config } from '../../constants/config';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import type { ApproverStackParamList } from '../../navigation/ApproverNavigator';
@@ -70,6 +71,17 @@ export default function ProfileScreen() {
     );
   }
 
+  async function openWebSystem() {
+    try {
+      await Linking.openURL(config.webSystemUrl);
+    } catch {
+      Alert.alert(
+        'Unable to open web system',
+        'Please check your connection and try again.',
+      );
+    }
+  }
+
   return (
     <Screen scroll>
       <Text style={styles.title}>Profile</Text>
@@ -106,6 +118,12 @@ export default function ProfileScreen() {
           Password changes, email verification, and role assignments are managed through the
           SDAO DMS web system.
         </Text>
+        <AppButton
+          label="Open Web System"
+          onPress={() => void openWebSystem()}
+          style={styles.webSystemButton}
+          variant="secondary"
+        />
       </Card>
 
       <AppButton
@@ -210,6 +228,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     color: colors.textMuted,
     ...typography.supporting,
+  },
+  webSystemButton: {
+    marginTop: spacing.md,
   },
   privacyButton: {
     marginBottom: spacing.sm,

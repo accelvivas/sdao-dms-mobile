@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "457230785205",
+    "project_id": "sdao-dms-mobile",
+    "storage_bucket": "sdao-dms-mobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:457230785205:android:693bb75b17bc70753a3cfc",
+        "android_client_info": {
+          "package_name": "com.nulpsdao.sdaodmsmobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8QURzvlAjbRDp3eJhs5UvRpDwOlJ0YTQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
