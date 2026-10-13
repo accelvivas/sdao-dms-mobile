@@ -84,7 +84,7 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
   const [rejectRemarks, setRejectRemarks] = useState('');
   const [approvalRemarks, setApprovalRemarks] = useState('');
   const [approvalRemarksError, setApprovalRemarksError] = useState('');
-  const [isExecutiveApprovalOpen, setIsExecutiveApprovalOpen] = useState(false);
+  const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [sectionNotes, setSectionNotes] = useState<Record<string, string>>({});
   const [openingAttachmentId, setOpeningAttachmentId] = useState<string | null>(null);
@@ -117,9 +117,7 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
 
   async function handleAction(action: 'approve' | 'revision' | 'reject') {
     if (!document) return;
-    const typedApprovalRemarks = document.currentStage === 'executive_director_review'
-      ? approvalRemarks.trim()
-      : undefined;
+    const typedApprovalRemarks = approvalRemarks.trim();
     const typedRevisionRemarks = remarks.trim();
     const typedRejectRemarks = rejectRemarks.trim();
     if (action === 'revision' && !typedRevisionRemarks) {
@@ -185,7 +183,7 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
       setRejectRemarks('');
       setApprovalRemarks('');
       setApprovalRemarksError('');
-      setIsExecutiveApprovalOpen(false);
+      setIsApprovalOpen(false);
       setSelectedSections([]);
       setSectionNotes({});
 
@@ -197,12 +195,12 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
     } catch (caught: unknown) {
       const status = getApiErrorStatus(caught);
       if (status === 401) {
-        setIsExecutiveApprovalOpen(false);
+        setIsApprovalOpen(false);
         await logout();
         return;
       }
       if (status === 403) {
-        setIsExecutiveApprovalOpen(false);
+        setIsApprovalOpen(false);
         try {
           setDocument(await getActivityProposal(document.id));
           Alert.alert(
@@ -519,12 +517,8 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
                   label="Approve"
                   loading={isUpdating}
                   onPress={() => {
-                    if (isExecutiveDirectorStage) {
-                      setApprovalRemarksError('');
-                      setIsExecutiveApprovalOpen(true);
-                    } else {
-                      confirmAction('approve');
-                    }
+                    setApprovalRemarksError('');
+                    setIsApprovalOpen(true);
                   }}
                 />
               </View>
@@ -648,11 +642,11 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
       <Modal
         animationType="fade"
         onRequestClose={() => {
-          if (!isUpdating) setIsExecutiveApprovalOpen(false);
+          if (!isUpdating) setIsApprovalOpen(false);
         }}
         statusBarTranslucent
         transparent
-        visible={isExecutiveApprovalOpen}
+        visible={isApprovalOpen}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -666,14 +660,16 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
                 accessibilityRole="button"
                 disabled={isUpdating}
                 hitSlop={8}
-                onPress={() => setIsExecutiveApprovalOpen(false)}
+                onPress={() => setIsApprovalOpen(false)}
                 style={styles.modalCloseButton}
               >
                 <Ionicons color={colors.textMuted} name="close" size={24} />
               </Pressable>
             </View>
             <Text style={styles.modalDescription}>
-              This is the final approval and will complete the proposal workflow.
+              {isExecutiveDirectorStage
+                ? 'This is the final approval and will complete the proposal workflow.'
+                : 'Your approval and optional remarks will be recorded in the proposal history.'}
             </Text>
 
             <View style={styles.modalFieldHeading}>
@@ -690,7 +686,7 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
                 setApprovalRemarks(value);
                 if (approvalRemarksError) setApprovalRemarksError('');
               }}
-              placeholder="Add final feedback for the organization..."
+              placeholder="Add a note for the organization or the next approver..."
               placeholderTextColor={colors.textMuted}
               style={[
                 styles.approvalRemarks,
@@ -707,7 +703,7 @@ export default function DocumentReviewScreen({ navigation, route }: Props) {
               <AppButton
                 disabled={isUpdating}
                 label="Cancel"
-                onPress={() => setIsExecutiveApprovalOpen(false)}
+                onPress={() => setIsApprovalOpen(false)}
                 style={styles.modalActionButton}
                 variant="secondary"
               />
